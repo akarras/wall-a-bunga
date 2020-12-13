@@ -137,23 +137,6 @@ pub(crate) struct SearchControls {
     choose_directory_button: button::State,
 }
 
-impl SearchControls {
-    fn view(&mut self, options: &SearchOptions) -> Row<WallpaperUi> {
-        Row::new()
-            .push(
-                Button::new(&mut self.prev_page_button, Text::new("Back"))
-                    .style(button_style::Button::Primary),
-            )
-            .push(Text::new(
-                (options.page.unwrap_or_default() + 1).to_string(),
-            ))
-            .push(
-                Button::new(&mut self.next_page_button, Text::new("Next"))
-                    .style(button_style::Button::Primary),
-            )
-    }
-}
-
 #[derive(Error, Debug)]
 pub enum WallGuiError {
     #[error("Networking error")]
@@ -502,7 +485,7 @@ impl Application for WallpaperUi {
             .map(|chunk| {
                 chunk
                     .iter_mut()
-                    .filter(|(listing, image)| -> bool {
+                    .filter(|(_, image)| -> bool {
                         match ignore_downloaded {
                             true => match image.state {
                                 ImageState::Downloaded => false,

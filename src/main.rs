@@ -21,5 +21,5 @@ fn main() {
         default_font: None,
         default_text_size: 18,
         antialiasing: false,
-    });
+    }).expect("Failed to launch UI");
 }
