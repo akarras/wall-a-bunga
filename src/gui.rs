@@ -194,7 +194,7 @@ impl WallpaperUi {
         Ok(())
     }
 
-    async fn download_images(save_path: PathBuf, urls: Vec<String>) -> () {
+    async fn download_images(save_path: PathBuf, urls: Vec<String>) {
         for url in urls {
             if let Err(e) = WallpaperUi::download_image(save_path.clone(), &url).await {
                 error!("{:3?}", e);
@@ -239,7 +239,7 @@ impl WallpaperUi {
         }
 
         Err(
-            WallGuiError::BadResponse(response.error.unwrap_or("No error message".to_string()))
+            WallGuiError::BadResponse(response.error.unwrap_or_else(|| "No error message".to_string()))
                 .into(),
         )
     }
@@ -257,15 +257,15 @@ impl Application for WallpaperUi {
     type Flags = Option<SavedSettings>;
 
     fn new(flags: Self::Flags) -> (Self, Command<WallpaperMessage>) {
-        let key = flags.clone().unwrap_or_default().api_key.clone();
+        let key = flags.clone().unwrap_or_default().api_key;
         (
             Self {
-                settings: flags.clone().unwrap_or_default(),
+                settings: flags.unwrap_or_default(),
                 search_options: SearchOptions {
                     api_key: key.clone(),
                     ..Default::default()
                 },
-                api_key: key.clone().unwrap_or_default(),
+                api_key: key.unwrap_or_default(),
                 ..Self::default()
             },
             Command::perform(
@@ -487,10 +487,7 @@ impl Application for WallpaperUi {
                     .iter_mut()
                     .filter(|(_, image)| -> bool {
                         match ignore_downloaded {
-                            true => match image.state {
-                                ImageState::Downloaded => false,
-                                _ => true,
-                            },
+                            true => !matches!(image.state, ImageState::Downloaded),
                             false => true,
                         }
                     })
@@ -592,7 +589,7 @@ impl Application for WallpaperUi {
                 PickList::new(
                     &mut self.controls.sorting_picker,
                     &Sorting::LIST[..],
-                    self.search_options.sorting.clone(),
+                    self.search_options.sorting,
                     WallpaperMessage::SortingTypeChanged,
                 )
                 .text_size(26)

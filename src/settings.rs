@@ -12,7 +12,7 @@ pub(crate) struct SavedSettings {
 }
 
 impl SavedSettings {
-    pub(crate) async fn save_settings(settings: SavedSettings) -> () {
+    pub(crate) async fn save_settings(settings: SavedSettings) {
         let app_dirs = AppDirs::new(Some("wall-a-bunga"), true).unwrap();
         tokio::fs::create_dir_all(app_dirs.config_dir.clone())
             .await
@@ -23,10 +23,7 @@ impl SavedSettings {
             .create(true)
             .open(config_file.clone())
             .await
-            .expect(&format!(
-                "Failed to create or open config file at {:?}",
-                config_file
-            ));
+            .unwrap_or_else(|_| panic!("Failed to create or open config file at {:?}", config_file));
         file.write_all(
             serde_json::to_string(&settings)
                 .expect("Failed to serialize config")

@@ -8,7 +8,6 @@ use serde::export::Formatter;
 use std::fmt;
 use serde::de::Visitor;
 use serde_with::*;
-use serde_as;
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -66,9 +65,9 @@ impl TryFrom<&str> for Purity {
             return Err(WallhavenApiClientError::InvalidContent);
         }
         Ok(Purity {
-            clean: explicit_char_bool(chars.nth(0).unwrap())?,
-            sketchy: explicit_char_bool(chars.nth(0).unwrap())?,
-            nsfw: explicit_char_bool(chars.nth(0).unwrap())?,
+            clean: explicit_char_bool(chars.next().unwrap())?,
+            sketchy: explicit_char_bool(chars.next().unwrap())?,
+            nsfw: explicit_char_bool(chars.next().unwrap())?,
         })
     }
 }
