@@ -1,0 +1,25 @@
+[package]
+name = "wall-a-bunga"
+version = "0.1.0-beta"
+authors = ["Chew <chew@akarras.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wallapi = { package = "wallhaven-api", path = "wallhaven-api"}
+iced = {git = "https://github.com/hecrj/iced", features = ["image", "tokio_old"]}
+reqwest = {version = "0.10.9", features = ["json"]}
+futures = "0.3.8"
+thiserror = "1.0.22"
+log = "0.4.11"
+pretty_env_logger = "0.4.0"
+tokio = { version = "~0.2", features = ["fs"] }
+rand = "0.7.3"
+anyhow = "1.0.35"
+serde = {version = "1.0.118", features = ["derive"] }
+native-dialog = "0.4.3"
+platform-dirs = "0.3.0"
+serde_json = "1.0.60"
+num = "0.3.1"
+itertools = "0.9.0"
