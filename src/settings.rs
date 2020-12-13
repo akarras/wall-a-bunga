@@ -23,7 +23,9 @@ impl SavedSettings {
             .create(true)
             .open(config_file.clone())
             .await
-            .unwrap_or_else(|_| panic!("Failed to create or open config file at {:?}", config_file));
+            .unwrap_or_else(|_| {
+                panic!("Failed to create or open config file at {:?}", config_file)
+            });
         file.write_all(
             serde_json::to_string(&settings)
                 .expect("Failed to serialize config")

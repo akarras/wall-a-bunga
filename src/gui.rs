@@ -238,10 +238,12 @@ impl WallpaperUi {
             return Ok(map);
         }
 
-        Err(
-            WallGuiError::BadResponse(response.error.unwrap_or_else(|| "No error message".to_string()))
-                .into(),
+        Err(WallGuiError::BadResponse(
+            response
+                .error
+                .unwrap_or_else(|| "No error message".to_string()),
         )
+        .into())
     }
 
     async fn choose_directory() -> Option<PathBuf> {

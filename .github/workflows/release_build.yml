@@ -1,0 +1,100 @@
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+      - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+name: Release
+
+jobs:
+  build:
+    name: Build
+    strategy:
+        matrix:
+            os: [macos-latest, ubuntu-latest, windows-latest]
+            include:
+              - os: windows-latest
+                bin: wall-a-bunga.exe
+              - os: ubuntu-latest
+                bin: wall-a-bunga
+              - os: macos-latest
+                bin: wall-a-bunga
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Run cargo release
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.os }}-${{ matrix.bin }}
+          path: target/release/${{ matrix.bin }}
+
+
+  create-release:
+    needs: build
+    name: Create Release
+    outputs:
+      upload_url: ${{ steps.create-release.outputs.upload_url }}
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Create Release
+        id: create-release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.event.ref }}
+          release_name: ${{ github.event.ref }}
+          draft: true
+          prerelease: false
+
+  upload-binaries:
+    needs: create-release
+    name: Upload binaries
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    strategy:
+      matrix:
+        os: [ macos-latest, ubuntu-latest, windows-latest ]
+        include:
+          - os: windows-latest
+            bin: wall-a-bunga.exe
+            asset_type: application/x-dosexec
+          - os: ubuntu-latest
+            bin: wall-a-bunga
+            asset_type: application/x-executable
+          - os: macos-latest
+            bin: wall-a-bunga
+            asset_type: application/octet-stream
+    steps:
+      - name: List files
+        run: ls -l
+      - name: Download artifacts
+        uses: actions/download-artifact@v2
+        with:
+          name: ${{ matrix.os }}-${{ matrix.bin }}
+      - name: List files 2
+        run: ls -l
+      - name: Upload artifacts
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./${{ matrix.bin }}
+          asset_name: ${{ matrix.os }}-${{ matrix.bin }}
+          asset_content_type: ${{ matrix.asset_type }}

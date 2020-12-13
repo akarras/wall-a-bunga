@@ -1,5 +1,5 @@
 use crate::types::{GenericResponse, ListingData, SearchOptions};
-use log::{debug,info};
+use log::{debug, info};
 use reqwest::Client;
 use thiserror::Error;
 
@@ -27,14 +27,10 @@ impl WallhavenClient {
         Default::default()
     }
 
-    pub async fn search(
-        options: &SearchOptions,
-    ) -> WHResult<GenericResponse<Vec<ListingData>>> {
+    pub async fn search(options: &SearchOptions) -> WHResult<GenericResponse<Vec<ListingData>>> {
         let search_url_base = "https://wallhaven.cc/api/v1/search";
         let client = reqwest::Client::builder().build()?;
-        let request = client.get(search_url_base)
-            .query(&options)
-            .build()?;
+        let request = client.get(search_url_base).query(&options).build()?;
         info!("Requesting from url: {:?}", &request);
         let response = client.execute(request).await?;
         let content = response.json().await?;
@@ -49,8 +45,7 @@ mod tests {
 
     #[tokio::test]
     async fn search_test() {
-        let results = WallhavenClient
-            ::search(&SearchOptions::new())
+        let results = WallhavenClient::search(&SearchOptions::new())
             .await
             .expect("No failure");
         let values = results.data.unwrap();

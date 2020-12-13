@@ -1,14 +1,14 @@
 use crate::{WHResult, WallhavenApiClientError};
+use serde::de::Visitor;
+use serde::export::Formatter;
 /// Types used to serialize/deserialize from the http://wallhaven.cc API
 /// Derived directly from https://wallhaven.cc/help/api
-use serde::{Deserialize, Serialize, Serializer, Deserializer};
-use std::convert::TryFrom;
-use std::fmt::Display;
-use serde::export::Formatter;
-use std::fmt;
-use serde::de::Visitor;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_with::*;
 use std::collections::HashSet;
+use std::convert::TryFrom;
+use std::fmt;
+use std::fmt::Display;
 
 #[derive(Debug, Clone)]
 pub struct Purity {
@@ -23,7 +23,7 @@ impl Default for Purity {
         Self {
             clean: true,
             sketchy: false,
-            nsfw: false
+            nsfw: false,
         }
     }
 }
@@ -101,7 +101,7 @@ impl Default for Categories {
         Categories {
             general: true,
             anime: true,
-            people: true
+            people: true,
         }
     }
 }
@@ -144,30 +144,25 @@ pub enum Sorting {
 }
 
 impl Sorting {
-    pub const LIST: [Sorting; 6] = [Sorting::DateAdded, Sorting::TopList, Sorting::Relevance, Sorting::Favorites, Sorting::Views, Sorting::Random];
+    pub const LIST: [Sorting; 6] = [
+        Sorting::DateAdded,
+        Sorting::TopList,
+        Sorting::Relevance,
+        Sorting::Favorites,
+        Sorting::Views,
+        Sorting::Random,
+    ];
 }
 
 impl Display for Sorting {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match &self {
-            Sorting::DateAdded => {
-                write!(f, "Date Added")
-            }
-            Sorting::Relevance => {
-                write!(f, "Relevance")
-            }
-            Sorting::Random => {
-                write!(f, "Random")
-            }
-            Sorting::Views => {
-                write!(f, "Views")
-            }
-            Sorting::Favorites => {
-                write!(f, "Favorites")
-            }
-            Sorting::TopList => {
-                write!(f, "Top List")
-            }
+            Sorting::DateAdded => write!(f, "Date Added"),
+            Sorting::Relevance => write!(f, "Relevance"),
+            Sorting::Random => write!(f, "Random"),
+            Sorting::Views => write!(f, "Views"),
+            Sorting::Favorites => write!(f, "Favorites"),
+            Sorting::TopList => write!(f, "Top List"),
         }
     }
 }
@@ -181,7 +176,7 @@ impl Default for Sorting {
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct XYCombo {
     pub x: i32,
-    pub y: i32
+    pub y: i32,
 }
 
 impl Display for XYCombo {
@@ -190,116 +185,45 @@ impl Display for XYCombo {
     }
 }
 
+pub static RESOLUTION_POSSIBILITIES: [XYCombo; 22] = [
+    XYCombo { x: 2560, y: 1080 },
+    XYCombo { x: 3440, y: 1440 },
+    XYCombo { x: 3840, y: 1600 },
+    XYCombo { x: 1280, y: 720 },
+    XYCombo { x: 1600, y: 900 },
+    XYCombo { x: 2560, y: 1440 },
+    XYCombo { x: 1920, y: 1080 },
+    XYCombo { x: 3840, y: 2160 },
+    XYCombo { x: 1280, y: 800 },
+    XYCombo { x: 1600, y: 1000 },
+    XYCombo { x: 1920, y: 1200 },
+    XYCombo { x: 2560, y: 1600 },
+    XYCombo { x: 3840, y: 2400 },
+    XYCombo { x: 1280, y: 960 },
+    XYCombo { x: 1600, y: 1200 },
+    XYCombo { x: 1920, y: 1440 },
+    XYCombo { x: 2560, y: 1920 },
+    XYCombo { x: 3840, y: 2880 },
+    XYCombo { x: 1280, y: 1024 },
+    XYCombo { x: 1600, y: 1024 },
+    XYCombo { x: 1920, y: 1280 },
+    XYCombo { x: 2560, y: 2048 },
+];
 
-pub static RESOLUTION_POSSIBILITIES: [XYCombo; 22] = [XYCombo {
-    x: 2560,
-    y: 1080
-}, XYCombo {
-x: 3440,
-y: 1440
-},
-    XYCombo {
-        x: 3840,
-        y: 1600
-    }, XYCombo {
-    x: 1280,
-    y: 720
-}, XYCombo {
-    x: 1600,
-    y: 900
-}, XYCombo {
-    x: 2560,
-    y: 1440
-},
-    XYCombo {
-        x: 1920,
-        y: 1080
-    },
-    XYCombo {
-    x: 3840,
-    y: 2160
-}, XYCombo {
-    x: 1280,
-    y: 800
-}, XYCombo {
-    x: 1600,
-    y: 1000
-}, XYCombo {
-    x: 1920,
-    y: 1200
-}, XYCombo {
-        x: 2560,
-        y: 1600
-    }, XYCombo {
-        x: 3840,
-        y: 2400
-    }, XYCombo {
-        x: 1280,
-        y: 960
-    },
-    XYCombo {
-        x: 1600,
-        y: 1200
-    }, XYCombo {
-        x: 1920,
-        y: 1440
-    }, XYCombo {
-        x: 2560,
-        y: 1920
-    }, XYCombo {
-        x: 3840,
-        y: 2880
-    }, XYCombo {
-        x: 1280,
-        y: 1024
-    }, XYCombo {
-        x: 1600,
-        y: 1024
-    }, XYCombo {
-        x: 1920,
-        y: 1280
-    }, XYCombo {
-        x: 2560,
-        y: 2048
-    }];
-
-pub static ASPECT_RATIOS: [XYCombo; 12] = [XYCombo {
-    x: 16,
-    y: 9
-}, XYCombo {
-    x: 16,
-    y: 10
-}, XYCombo {
-    x: 21,
-    y: 9
-}, XYCombo {
-    x: 32,
-    y: 9
-}, XYCombo {
-    x: 48,
-    y: 9
-}, XYCombo {
-    x: 9,
-    y: 16
-}, XYCombo {
-    x: 10,
-    y: 16
-}, XYCombo {
-    x: 9,
-    y: 18
-}, XYCombo {
-    x: 1,
-    y: 1
-}, XYCombo {
-    x: 3,
-    y: 2
-}, XYCombo {
-    x: 4,
-    y: 3
-}, XYCombo {
-    x: 5,
-    y: 4
-}];
+pub static ASPECT_RATIOS: [XYCombo; 12] = [
+    XYCombo { x: 16, y: 9 },
+    XYCombo { x: 16, y: 10 },
+    XYCombo { x: 21, y: 9 },
+    XYCombo { x: 32, y: 9 },
+    XYCombo { x: 48, y: 9 },
+    XYCombo { x: 9, y: 16 },
+    XYCombo { x: 10, y: 16 },
+    XYCombo { x: 9, y: 18 },
+    XYCombo { x: 1, y: 1 },
+    XYCombo { x: 3, y: 2 },
+    XYCombo { x: 4, y: 3 },
+    XYCombo { x: 5, y: 4 },
+];
 
 #[derive(Serialize)]
 pub enum TopListTimeFilter {
@@ -316,12 +240,14 @@ pub enum TopListTimeFilter {
     #[serde(rename = "6M")]
     LastSixMonths,
     #[serde(rename = "1y")]
-    LastYear
+    LastYear,
 }
 
 impl Serialize for XYCombo {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error> where
-        S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
         serializer.serialize_str(&format!("{}x{}", self.x, self.y))
     }
 }
@@ -422,7 +348,7 @@ pub struct Thumbs {
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct SerializeableInt {
-    val: i64
+    val: i64,
 }
 
 pub struct StringOrIntVisitor;
@@ -435,22 +361,22 @@ impl<'de> Visitor<'de> for StringOrIntVisitor {
     }
 
     fn visit_i64<E>(self, val: i64) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
+    where
+        E: serde::de::Error,
     {
         Ok(val)
     }
 
     fn visit_u64<E>(self, val: u64) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
+    where
+        E: serde::de::Error,
     {
         Ok(val as i64)
     }
 
     fn visit_str<E>(self, val: &str) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
+    where
+        E: serde::de::Error,
     {
         match val.parse::<i64>() {
             Ok(val) => self.visit_i64(val),
@@ -459,8 +385,10 @@ impl<'de> Visitor<'de> for StringOrIntVisitor {
     }
 }
 
-
-fn deserialize_string_or_int<'de, D>(deserialize: D)-> Result<i64, D::Error> where D: Deserializer<'de> {
+fn deserialize_string_or_int<'de, D>(deserialize: D) -> Result<i64, D::Error>
+where
+    D: Deserializer<'de>,
+{
     deserialize.deserialize_any(StringOrIntVisitor)
 }
 
@@ -493,7 +421,7 @@ fn deserialize_string_or_int<'de, D>(deserialize: D)-> Result<i64, D::Error> whe
 pub struct SearchMetaData {
     pub current_page: i64,
     pub last_page: i64,
-    #[serde(deserialize_with="deserialize_string_or_int")]
+    #[serde(deserialize_with = "deserialize_string_or_int")]
     pub per_page: i64,
     pub total: i64,
     pub query: Option<String>,
@@ -502,8 +430,8 @@ pub struct SearchMetaData {
 
 #[cfg(test)]
 mod tests {
+    use crate::types::{Categories, Purity, Sorting, XYCombo};
     use crate::SearchOptions;
-    use crate::types::{Purity, Categories, Sorting, XYCombo};
 
     // ensure that the search options query string serializes properly
     #[test]
@@ -512,30 +440,29 @@ mod tests {
         let query_options = SearchOptions {
             query: Some("Zero Two".to_string()),
             page: Some(2),
-            purity: Some(Purity { // 0 1 1
+            purity: Some(Purity {
+                // 0 1 1
                 clean: false,
                 sketchy: true,
-                nsfw: true
+                nsfw: true,
             }),
-            categories: Some(Categories { // expected 0 1 0
+            categories: Some(Categories {
+                // expected 0 1 0
                 general: false,
                 anime: true,
-                people: false
+                people: false,
             }),
             sorting: Some(Sorting::Views),
             api_key: Some("supersecretapikey".to_string()),
             seed: Some("seedyroots".to_string()),
-            resolutions: Some(vec![XYCombo {
-                x: 1920,
-                y: 1280
-            }].into_iter().collect()),
-            ratios: Some(vec![XYCombo {
-                x: 16,
-                y: 9
-            }].into_iter().collect())
+            resolutions: Some(vec![XYCombo { x: 1920, y: 1280 }].into_iter().collect()),
+            ratios: Some(vec![XYCombo { x: 16, y: 9 }].into_iter().collect()),
         };
-        let request = client.get("http://test.test/")
-            .query(&query_options).build().unwrap();
+        let request = client
+            .get("http://test.test/")
+            .query(&query_options)
+            .build()
+            .unwrap();
         assert_eq!(&request.url().to_string(), "http://test.test/?q=Zero+Two&page=2&purity=011&categories=010&sorting=views&apikey=supersecretapikey&seed=seedyroots&resolutions=1920x1280&ratios=16x9");
     }
 
@@ -544,18 +471,22 @@ mod tests {
         let client = reqwest::Client::new();
         let query_options = SearchOptions {
             query: Some("Zero Two".to_string()),
-            resolutions: Some(vec![XYCombo {
-                x: 1920,
-                y: 1280
-            }, XYCombo {
-                x: 2550,
-                y: 1440
-            }].into_iter().collect()),
+            resolutions: Some(
+                vec![XYCombo { x: 1920, y: 1280 }, XYCombo { x: 2550, y: 1440 }]
+                    .into_iter()
+                    .collect(),
+            ),
             ..Default::default()
         };
-        let request = client.get("http://test.test/")
-            .query(&query_options).build().unwrap();
-        assert_eq!(&request.url().to_string(), "http://test.test/?q=Zero+Two&resolutions=1920x1280%2C2550x1440");
+        let request = client
+            .get("http://test.test/")
+            .query(&query_options)
+            .build()
+            .unwrap();
+        assert_eq!(
+            &request.url().to_string(),
+            "http://test.test/?q=Zero+Two&resolutions=1920x1280%2C2550x1440"
+        );
     }
 
     #[test]
@@ -566,9 +497,11 @@ mod tests {
         };
 
         let client = reqwest::Client::new();
-        let request = client.get("http://test.test/")
-            .query(&query_options).build().unwrap();
+        let request = client
+            .get("http://test.test/")
+            .query(&query_options)
+            .build()
+            .unwrap();
         assert_eq!(&request.url().to_string(), "http://test.test/?q=Zero+Two");
     }
 }
-
