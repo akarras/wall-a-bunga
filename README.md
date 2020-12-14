@@ -17,7 +17,7 @@ clunky and didn't make me happy. So, I had the classic thought, aha, rewrite thi
 * Filter wallpapers you already have downloaded from the results
 
 ### Installation
-* Download the executable [here]()
+* Download the executable [here](https://github.com/akarras/wall-a-bunga/releases/latest)
 * `cargo install --git https://github.com/akarras/wall-a-bunga`
 * alternatively, `git clone https://github.com/akarras/wall-a-bunga`, and `git build --release` inside the root directory
 
