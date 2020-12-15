@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 wallapi = { package = "wallhaven-api", path = "wallhaven-api"}
-iced = {git = "https://github.com/hecrj/iced", features = ["image", "tokio_old"]}
+iced = {version = "0.2", features = ["image", "tokio_old"]}
 reqwest = {version = "0.10.9", features = ["json"]}
 futures = "0.3.8"
 thiserror = "1.0.22"
