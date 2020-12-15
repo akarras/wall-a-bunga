@@ -14,6 +14,14 @@ impl Default for ResolutionOptionsMenu {
     fn default() -> Self {
         let button_states = wallapi::types::RESOLUTION_POSSIBILITIES
             .iter()
+            .sorted_by(|a, b| {
+                let (bx, by) = calculate_aspect_ratio(b.x, b.y);
+                let (ax, ay) = calculate_aspect_ratio(a.x, a.y);
+                ax.cmp(&bx)
+                    .then_with(|| ay.cmp(&by))
+                    .then_with(|| a.x.cmp(&b.x))
+                    .then_with(|| a.y.cmp(&b.y))
+            })
             .map(|resolution| (resolution.clone(), button::State::new()))
             .collect();
         Self { button_states }

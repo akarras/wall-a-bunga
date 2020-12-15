@@ -18,9 +18,7 @@ fn main() {
             ..Default::default()
         },
         flags: SavedSettings::load_settings(),
-        default_font: None,
-        default_text_size: 18,
-        antialiasing: false,
+        ..Default::default()
     })
     .expect("Failed to launch UI");
 }
