@@ -1,8 +1,8 @@
-use crate::ratio_menu::RatioMenu;
-use crate::resolution_menu::ResolutionOptionsMenu;
 use crate::settings::SavedSettings;
 use crate::style::make_button;
 use crate::style::{button_style, inactive_style};
+use crate::submenus::ratio_menu::RatioMenu;
+use crate::submenus::resolution_menu::ResolutionOptionsMenu;
 use anyhow::Result;
 use iced::{
     button, executor, image, pick_list, scrollable, text_input, Align, Application, Button,

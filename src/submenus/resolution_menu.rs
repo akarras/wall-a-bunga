@@ -1,5 +1,6 @@
 use crate::gui::WallpaperMessage;
 use crate::style::{inactive_style, make_button};
+use crate::submenus::calculate_aspect_ratio;
 use iced::{button, Column, Row, Text};
 use itertools::Itertools;
 use std::collections::HashSet;
@@ -26,11 +27,6 @@ impl Default for ResolutionOptionsMenu {
             .collect();
         Self { button_states }
     }
-}
-
-fn calculate_aspect_ratio(x: i32, y: i32) -> (i32, i32) {
-    let gcd = num::integer::gcd(y, x);
-    (x / gcd, y / gcd)
 }
 
 impl ResolutionOptionsMenu {

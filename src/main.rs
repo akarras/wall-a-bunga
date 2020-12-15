@@ -1,8 +1,7 @@
 mod gui;
-mod ratio_menu;
-mod resolution_menu;
 mod settings;
 mod style;
+mod submenus;
 
 use crate::settings::SavedSettings;
 use gui::WallpaperUi;
