@@ -350,6 +350,7 @@ impl Application for WallpaperUi {
                 let image_urls = self
                     .search_results
                     .iter_mut()
+                    .rev() // reverse the order so that when we queue these, the first are inserted last
                     .filter(|(_, image)| {
                         image.state == ImageState::Selected || image.state == ImageState::Failed
                     })
@@ -376,18 +377,6 @@ impl Application for WallpaperUi {
                     .join(file_name);
                     self.download_manager.queue_download(url, id, save_path);
                 }
-
-                /*return Command::perform(
-                    WallpaperUi::download_images(
-                        self.settings
-                            .save_directory
-                            .clone()
-                            .unwrap_or_default()
-                            .into(),
-                        image_urls,
-                    ),
-                    WallpaperMessage::ImageDownloaded,
-                );*/
             }
             WallpaperMessage::SortingTypeChanged(sort) => {
                 self.search_options.sorting = Some(sort);
