@@ -1,3 +1,4 @@
+mod download_manager;
 mod gui;
 mod settings;
 mod style;
