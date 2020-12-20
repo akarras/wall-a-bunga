@@ -81,13 +81,20 @@ pub(crate) enum ContentTypes {
 }
 
 #[derive(Debug, Clone)]
+pub(crate) enum SelectionUpdateType {
+    Single(String),
+    SelectAll,
+    DeselectAll,
+}
+
+#[derive(Debug, Clone)]
 pub(crate) enum WallpaperMessage {
     Search(),
     NextPage(),
     SearchUpdated(String),
     SearchReceived(GenericResponse<Vec<(ListingData, ImageView)>>),
     /// Where String == image.id
-    ImageChecked(String),
+    SelectionUpdate(SelectionUpdateType),
     DownloadImages(),
     ImageDownloaded(()),
     SortingTypeChanged(Sorting),
@@ -135,6 +142,8 @@ pub(crate) struct SearchControls {
     settings_button: button::State,
     save_settings_button: button::State,
     choose_directory_button: button::State,
+    select_all_button: button::State,
+    deselect_all_button: button::State,
 }
 
 #[derive(Error, Debug)]
@@ -326,15 +335,35 @@ impl Application for WallpaperUi {
                     WallpaperMessage::SearchReceived,
                 );
             }
-            WallpaperMessage::ImageChecked(id) => {
-                let image = self.search_results.iter_mut().find(|(l, _)| l.id == id);
-                if let Some((_, result_data)) = image {
-                    // toggle checked
-                    result_data.state = match result_data.state {
-                        ImageState::Unselected => ImageState::Selected,
-                        ImageState::Selected => ImageState::Unselected,
-                        // default return same state
-                        _ => result_data.state,
+            WallpaperMessage::SelectionUpdate(option) => {
+                match option {
+                    SelectionUpdateType::Single(id) => {
+                        let image = self.search_results.iter_mut().find(|(l, _)| l.id == id);
+                        if let Some((_, result_data)) = image {
+                            // toggle checked
+                            result_data.state = match result_data.state {
+                                ImageState::Unselected => ImageState::Selected,
+                                ImageState::Selected => ImageState::Unselected,
+                                // default return same state
+                                _ => result_data.state,
+                            }
+                        }
+                    }
+                    SelectionUpdateType::SelectAll => {
+                        for (_, r) in &mut self.search_results {
+                            r.state = match r.state {
+                                ImageState::Unselected => ImageState::Selected,
+                                _ => r.state,
+                            }
+                        }
+                    }
+                    SelectionUpdateType::DeselectAll => {
+                        for (_, r) in &mut self.search_results {
+                            r.state = match r.state {
+                                ImageState::Selected => ImageState::Unselected,
+                                _ => r.state,
+                            }
+                        }
                     }
                 }
             }
@@ -504,7 +533,9 @@ impl Application for WallpaperUi {
                             ImageState::Downloading => button_style::Button::Downloading,
                             ImageState::Downloaded => button_style::Button::Primary,
                         })
-                        .on_press(WallpaperMessage::ImageChecked(listing.id.clone()))
+                        .on_press(WallpaperMessage::SelectionUpdate(
+                            SelectionUpdateType::Single(listing.id.clone()),
+                        ))
                     })
                     .fold(Row::new().spacing(5), |row, item| row.push(item))
             })
@@ -607,6 +638,16 @@ impl Application for WallpaperUi {
                     .on_press(WallpaperMessage::ChangeSubmenu(Submenu::AspectRatio)),
             )
             .push(Space::new(Length::FillPortion(5), Length::Shrink))
+            .push(
+                make_button(&mut self.controls.select_all_button, "select all").on_press(
+                    WallpaperMessage::SelectionUpdate(SelectionUpdateType::SelectAll),
+                ),
+            )
+            .push(
+                make_button(&mut self.controls.deselect_all_button, "deselect all").on_press(
+                    WallpaperMessage::SelectionUpdate(SelectionUpdateType::DeselectAll),
+                ),
+            )
             .push(
                 make_button(&mut self.controls.settings_button, "settings")
                     .on_press(WallpaperMessage::ChangeSubmenu(Submenu::Settings)),
