@@ -1,15 +1,15 @@
 use crate::gui::WallpaperMessage;
 use iced::futures::stream::BoxStream;
 use iced::{Column, Text};
+use indexmap::IndexMap;
 use log::{debug, error, info};
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Clone)]
 pub(crate) struct DownloadManager {
-    downloads: BTreeMap<String, ImageDownload>,
+    downloads: IndexMap<String, ImageDownload>,
     concurrent_downloads: usize,
 }
 
