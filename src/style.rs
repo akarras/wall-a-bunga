@@ -28,6 +28,7 @@ pub mod button_style {
         Select,
         Inactive,
         Downloading,
+        Failed,
     }
 
     impl button::StyleSheet for Button {
@@ -38,6 +39,7 @@ pub mod button_style {
                     Button::Select => Color::from_rgb(0.1, 0.8, 0.2),
                     Button::Inactive => Color::from_rgb(0.1, 0.1, 0.1),
                     Button::Downloading => Color::from_rgb(1.0, 0.82, 0.863),
+                    Button::Failed => Color::from_rgb(1.0, 0.0, 0.0),
                 })),
                 border_radius: 12.0,
                 shadow_offset: Vector::new(1.0, 1.0),

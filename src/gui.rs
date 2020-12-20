@@ -1,3 +1,4 @@
+use crate::download_manager::{DownloadManager, DownloadStatus};
 use crate::settings::SavedSettings;
 use crate::style::make_button;
 use crate::style::{button_style, inactive_style};
@@ -6,9 +7,10 @@ use crate::submenus::resolution_menu::ResolutionOptionsMenu;
 use anyhow::Result;
 use iced::{
     button, executor, image, pick_list, scrollable, text_input, Align, Application, Button,
-    Checkbox, Column, Command, Container, Element, Image, Length, PickList, Row, Scrollable, Space,
-    Text, TextInput,
+    Checkbox, Column, Command, Container, Element, Image, Length, PickList, ProgressBar, Row,
+    Scrollable, Space, Text, TextInput,
 };
+use iced_native::Subscription;
 use log::{debug, error, info};
 use native_dialog::Dialog;
 use rand::{thread_rng, RngCore};
@@ -16,14 +18,13 @@ use std::collections::HashSet;
 use std::path::PathBuf;
 use thiserror::Error;
 use tokio::fs::metadata;
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
 use wallapi::types::{
-    Categories, GenericResponse, ListingData, Purity, SearchOptions, Sorting, XYCombo,
+    Categories, GenericResponse, ListingData, Purity, SearchMetaData, SearchOptions, Sorting,
+    XYCombo,
 };
 use wallapi::{WallhavenApiClientError, WallhavenClient};
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub(crate) struct WallpaperUi {
     controls: SearchControls,
     search_state: text_input::State,
@@ -32,6 +33,7 @@ pub(crate) struct WallpaperUi {
     current_page: u32,
     max_pages: Option<u32>,
     search_results: Vec<(ListingData, ImageView)>,
+    search_meta: Option<SearchMetaData>,
     client: WallhavenClient,
     search_options: SearchOptions,
     error_message: String,
@@ -43,14 +45,18 @@ pub(crate) struct WallpaperUi {
     aspect_menu_button: button::State,
     resolution_menu: ResolutionOptionsMenu,
     aspect_menu: RatioMenu,
+    download_manager: DownloadManager,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 enum ImageState {
     Unselected,
     Selected,
-    Downloading,
+    Queued,
+    // f32 measures progress
+    Downloading(f32),
     Downloaded,
+    Failed,
 }
 
 impl Default for ImageState {
@@ -96,7 +102,6 @@ pub(crate) enum WallpaperMessage {
     /// Where String == image.id
     SelectionUpdate(SelectionUpdateType),
     DownloadImages(),
-    ImageDownloaded(()),
     SortingTypeChanged(Sorting),
     TogglePurity(PurityOptions),
     ToggleContentType(ContentTypes),
@@ -109,6 +114,7 @@ pub(crate) enum WallpaperMessage {
     SaveSettings(),
     SaveCompleted(()),
     SetIgnoreDownloaded(bool),
+    DownloadUpdated(DownloadStatus),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -180,46 +186,12 @@ impl WallpaperUi {
         Ok((data, result))
     }
 
-    async fn download_image(mut save_path: PathBuf, url: &str) -> GuiResult<()> {
-        debug!("Downloading from url: {}", url);
-        let response = reqwest::get(url).await?;
-        if !response.status().is_success() {
-            return Err(WallGuiError::BadResponse(response.status().to_string()).into());
-        }
-        if let Some(file_name) = url.split('/').into_iter().last() {
-            // TODO save directory location
-            debug!(
-                "writing {} bytes to {}",
-                &response.content_length().unwrap_or_default(),
-                &file_name
-            );
-            save_path.push(file_name);
-            let mut file = File::create(save_path).await?;
-            file.write_all(&response.bytes().await?).await?;
-        } else {
-            error!("Error getting filename of url: {}", url);
-        }
-
-        Ok(())
-    }
-
-    async fn download_images(save_path: PathBuf, urls: Vec<String>) {
-        for url in urls {
-            if let Err(e) = WallpaperUi::download_image(save_path.clone(), &url).await {
-                error!("{:3?}", e);
-            }
-        }
-    }
-
     async fn search_command(
         options: SearchOptions,
         directory: PathBuf,
     ) -> GenericResponse<Vec<(ListingData, ImageView)>> {
         match WallpaperUi::do_search(options, directory).await {
-            Ok(search) => GenericResponse {
-                data: Some(search),
-                ..Default::default()
-            },
+            Ok(search) => search,
             Err(e) => {
                 error!("{:3?}", e);
                 GenericResponse {
@@ -233,7 +205,7 @@ impl WallpaperUi {
     async fn do_search(
         options: SearchOptions,
         directory: PathBuf,
-    ) -> GuiResult<Vec<(ListingData, ImageView)>> {
+    ) -> GuiResult<GenericResponse<Vec<(ListingData, ImageView)>>> {
         let response = WallhavenClient::search(&options).await?;
         if let Some(data) = response.data {
             info!("Received {} search results", &data.len());
@@ -244,7 +216,11 @@ impl WallpaperUi {
             let joined = futures::future::join_all(images).await;
             let map: Vec<_> = joined.into_iter().filter_map(|m| m.ok()).collect();
             info!("Downloaded {} images", &map.len());
-            return Ok(map);
+            return Ok(GenericResponse {
+                data: Some(map),
+                error: response.error,
+                meta: response.meta,
+            });
         }
 
         Err(WallGuiError::BadResponse(
@@ -320,6 +296,8 @@ impl Application for WallpaperUi {
                 } else if let Some(error) = values.error {
                     self.error_message = error;
                 }
+                debug!("Updating search meta: {:?}", values.meta);
+                self.search_meta = values.meta;
             }
             WallpaperMessage::NextPage() => {
                 self.search_options.page = Some(self.search_options.page.unwrap_or(1) + 1);
@@ -344,6 +322,7 @@ impl Application for WallpaperUi {
                             result_data.state = match result_data.state {
                                 ImageState::Unselected => ImageState::Selected,
                                 ImageState::Selected => ImageState::Unselected,
+                                ImageState::Failed => ImageState::Selected,
                                 // default return same state
                                 _ => result_data.state,
                             }
@@ -368,17 +347,37 @@ impl Application for WallpaperUi {
                 }
             }
             WallpaperMessage::DownloadImages() => {
-                let image_urls: Vec<_> = self
+                let image_urls = self
                     .search_results
                     .iter_mut()
-                    .filter(|(_, image)| image.state.eq(&ImageState::Selected))
-                    .map(|(listing, image)| {
-                        image.state = ImageState::Downloading;
-                        listing.path.clone()
+                    .filter(|(_, image)| {
+                        image.state == ImageState::Selected || image.state == ImageState::Failed
                     })
-                    .collect();
+                    .map(|(listing, image)| {
+                        image.state = ImageState::Queued;
+                        (&listing.path, &listing.id)
+                    });
 
-                return Command::perform(
+                for (url, id) in image_urls {
+                    let file_name = match url.split('/').into_iter().last() {
+                        Some(name) => name,
+                        None => {
+                            error!("Error getting filename of url: {}", url);
+                            continue;
+                        }
+                    };
+                    let save_path = PathBuf::from(
+                        &self
+                            .settings
+                            .save_directory
+                            .clone()
+                            .unwrap_or_else(|| "./".to_string()),
+                    )
+                    .join(file_name);
+                    self.download_manager.queue_download(url, id, save_path);
+                }
+
+                /*return Command::perform(
                     WallpaperUi::download_images(
                         self.settings
                             .save_directory
@@ -388,7 +387,7 @@ impl Application for WallpaperUi {
                         image_urls,
                     ),
                     WallpaperMessage::ImageDownloaded,
-                );
+                );*/
             }
             WallpaperMessage::SortingTypeChanged(sort) => {
                 self.search_options.sorting = Some(sort);
@@ -423,18 +422,6 @@ impl Application for WallpaperUi {
                         content.people = !content.people;
                     }
                 }
-                self.search_results.clear();
-                return Command::perform(
-                    WallpaperUi::search_command(
-                        self.search_options.clone(),
-                        self.settings
-                            .save_directory
-                            .as_ref()
-                            .unwrap_or(&"./".to_string())
-                            .into(),
-                    ),
-                    WallpaperMessage::SearchReceived,
-                );
             }
             WallpaperMessage::ApiTokenSet(token) => {
                 self.api_key = token;
@@ -474,6 +461,9 @@ impl Application for WallpaperUi {
                     .get_or_insert(HashSet::new());
                 if res_map.contains(&resolution) {
                     res_map.remove(&resolution);
+                    if res_map.is_empty() {
+                        self.search_options.resolutions = None;
+                    }
                 } else {
                     res_map.insert(resolution);
                 }
@@ -486,9 +476,6 @@ impl Application for WallpaperUi {
                     ratio_map.insert(aspect_ratio);
                 }
             }
-            WallpaperMessage::ImageDownloaded(()) => {
-                // TODO implement
-            }
             WallpaperMessage::SaveSettings() => {
                 self.settings.api_key = self.search_options.api_key.clone();
                 return Command::perform(
@@ -500,11 +487,61 @@ impl Application for WallpaperUi {
             WallpaperMessage::SetIgnoreDownloaded(value) => {
                 self.settings.ignore_downloaded = value;
             }
+            WallpaperMessage::DownloadUpdated(u) => match u {
+                DownloadStatus::Starting(id) => {
+                    if let Some((_, i)) = self
+                        .search_results
+                        .iter_mut()
+                        .find(|(val, _)| val.id.eq(&id))
+                    {
+                        i.state = ImageState::Downloading(0.0);
+                    }
+                }
+                DownloadStatus::Progress(id, progress) => {
+                    if let Some((_, i)) = self
+                        .search_results
+                        .iter_mut()
+                        .find(|(val, _)| val.id.eq(&id))
+                    {
+                        i.state = ImageState::Downloading(progress);
+                    }
+                }
+                DownloadStatus::Failed(image) => {
+                    error!("Image {} failed", image);
+                    if let Some((_, l)) = self
+                        .search_results
+                        .iter_mut()
+                        .find(|(l, _)| l.id.eq(&image))
+                    {
+                        l.state = ImageState::Failed
+                    };
+                    self.download_manager.remove_download(&image);
+                }
+                DownloadStatus::Finished(id) => {
+                    info!("Image {} complete", id);
+                    if let Some((_, l)) = self.search_results.iter_mut().find(|(l, _)| l.id.eq(&id))
+                    {
+                        l.state = ImageState::Downloaded
+                    };
+                    self.download_manager.remove_download(&id);
+                }
+            },
         }
         Command::none()
     }
 
+    fn subscription(&self) -> Subscription<Self::Message> {
+        Subscription::batch(self.download_manager.get_subscriptions())
+            .map(WallpaperMessage::DownloadUpdated)
+    }
+
     fn view(&mut self) -> Element<'_, Self::Message> {
+        let selected_count = self
+            .search_results
+            .iter()
+            .filter(|(_, l)| l.state == ImageState::Selected)
+            .count();
+
         // Build columns of 5 with our images
         let ignore_downloaded = self.settings.ignore_downloaded;
 
@@ -523,19 +560,34 @@ impl Application for WallpaperUi {
                         }
                     })
                     .map(|(listing, image)| {
-                        Button::new(
-                            &mut image.button_state,
-                            Image::new(image.image_handle.clone()),
-                        )
-                        .style(match image.state {
-                            ImageState::Selected => button_style::Button::Select,
-                            ImageState::Unselected => button_style::Button::Inactive,
-                            ImageState::Downloading => button_style::Button::Downloading,
-                            ImageState::Downloaded => button_style::Button::Primary,
-                        })
-                        .on_press(WallpaperMessage::SelectionUpdate(
-                            SelectionUpdateType::Single(listing.id.clone()),
-                        ))
+                        let col = Column::new()
+                            .width(Length::Shrink)
+                            .align_items(Align::Center)
+                            .push(
+                                Button::new(
+                                    &mut image.button_state,
+                                    Image::new(image.image_handle.clone()),
+                                )
+                                .style(match image.state {
+                                    ImageState::Selected => button_style::Button::Select,
+                                    ImageState::Unselected => button_style::Button::Inactive,
+                                    ImageState::Queued => button_style::Button::Downloading,
+                                    ImageState::Downloading(_) => button_style::Button::Downloading,
+                                    ImageState::Downloaded => button_style::Button::Primary,
+                                    ImageState::Failed => button_style::Button::Failed,
+                                })
+                                .on_press(
+                                    WallpaperMessage::SelectionUpdate(SelectionUpdateType::Single(
+                                        listing.id.clone(),
+                                    )),
+                                ),
+                            );
+                        match image.state {
+                            ImageState::Downloading(progress) => col.push(
+                                ProgressBar::new(0.0..=100.0, progress).width(Length::Units(256)),
+                            ),
+                            _ => col,
+                        }
                     })
                     .fold(Row::new().spacing(5), |row, item| row.push(item))
             })
@@ -702,12 +754,30 @@ impl Application for WallpaperUi {
                     .width(Length::FillPortion(2)),
             );
 
+        let (current_page, last_page) = self
+            .search_meta
+            .as_ref()
+            .map_or((0, 0), |f| (f.current_page, f.last_page));
+
+        let selection_info = Column::new().push(Text::new(format!(
+            "selected: {}  page: {}/{}",
+            selected_count, current_page, last_page
+        )));
+
+        let status_row = Row::new()
+            .align_items(Align::Center)
+            .push(Space::new(Length::Fill, Length::Units(10)))
+            .push(selection_info)
+            .push(self.download_manager.view())
+            .spacing(5);
+
         let column = Column::new()
             .width(Length::Fill)
             .height(Length::Fill)
             .padding(20)
             .align_items(Align::Center)
             .spacing(10)
+            .push(status_row)
             .push(filter_row)
             .push(match self.controls.submenu {
                 Submenu::Settings => settings_row,
