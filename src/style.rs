@@ -25,7 +25,7 @@ pub mod button_style {
 
     pub enum Button {
         Primary,
-        Select,
+        Downloaded,
         Inactive,
         Downloading,
         Failed,
@@ -36,9 +36,9 @@ pub mod button_style {
             button::Style {
                 background: Some(Background::Color(match self {
                     Button::Primary => Color::from_rgb(0.11, 0.42, 0.87),
-                    Button::Select => Color::from_rgb(0.1, 0.8, 0.2),
+                    Button::Downloaded => Color::from_rgb(0.467, 0.867, 0.467),
                     Button::Inactive => Color::from_rgb(0.1, 0.1, 0.1),
-                    Button::Downloading => Color::from_rgb(1.0, 0.82, 0.863),
+                    Button::Downloading => Color::from_rgb(0.992, 0.992, 0.588),
                     Button::Failed => Color::from_rgb(1.0, 0.0, 0.0),
                 })),
                 border_radius: 12.0,

@@ -558,11 +558,11 @@ impl Application for WallpaperUi {
                                     Image::new(image.image_handle.clone()),
                                 )
                                 .style(match image.state {
-                                    ImageState::Selected => button_style::Button::Select,
+                                    ImageState::Selected => button_style::Button::Primary,
                                     ImageState::Unselected => button_style::Button::Inactive,
                                     ImageState::Queued => button_style::Button::Downloading,
                                     ImageState::Downloading(_) => button_style::Button::Downloading,
-                                    ImageState::Downloaded => button_style::Button::Primary,
+                                    ImageState::Downloaded => button_style::Button::Downloaded,
                                     ImageState::Failed => button_style::Button::Failed,
                                 })
                                 .on_press(
