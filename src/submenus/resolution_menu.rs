@@ -1,7 +1,7 @@
 use crate::gui::WallpaperMessage;
 use crate::style::{inactive_style, make_button};
 use crate::submenus::calculate_aspect_ratio;
-use iced::{button, Column, Row, Text};
+use iced::{button, Checkbox, Column, Row, Text};
 use itertools::Itertools;
 use std::collections::HashSet;
 use wallapi::types::XYCombo;
@@ -9,6 +9,7 @@ use wallapi::types::XYCombo;
 #[derive(Debug, Clone)]
 pub(crate) struct ResolutionOptionsMenu {
     button_states: Vec<(XYCombo, button::State)>,
+    pub(crate) is_minimum_set: bool,
 }
 
 impl Default for ResolutionOptionsMenu {
@@ -25,7 +26,10 @@ impl Default for ResolutionOptionsMenu {
             })
             .map(|resolution| (resolution.clone(), button::State::new()))
             .collect();
-        Self { button_states }
+        Self {
+            button_states,
+            is_minimum_set: false,
+        }
     }
 }
 
@@ -33,13 +37,23 @@ impl ResolutionOptionsMenu {
     pub(crate) fn build_resolution_row(
         &mut self,
         selected_options: &Option<HashSet<XYCombo>>,
+        minimum_resolution: &Option<XYCombo>,
     ) -> Row<WallpaperMessage> {
-        let get_is_toggled = |option: &XYCombo| -> bool {
+        let check_resolution_active_multi = |option: &XYCombo| -> bool {
             match selected_options {
                 None => false,
                 Some(options) => options.contains(option),
             }
         };
+
+        let check_minimum_resolution_active = |button_option: &XYCombo| -> bool {
+            minimum_resolution
+                .as_ref()
+                .map_or(false, |minimum| button_option.eq(minimum))
+        };
+
+        let is_minimum_resolution = self.is_minimum_set;
+
         self.button_states
             .iter_mut()
             .group_by(|(res, _)| calculate_aspect_ratio(res.x, res.y))
@@ -48,13 +62,21 @@ impl ResolutionOptionsMenu {
                 row.push(resolutions.fold(
                     Column::new().push(Text::new(format!("{}:{}", x, y))),
                     |column, (res, btn_state)| {
-                        column.push(
-                            make_button(btn_state, &res.to_string())
-                                .style(inactive_style(get_is_toggled(&res)))
+                        column.push(match is_minimum_resolution {
+                            false => make_button(btn_state, &res.to_string())
+                                .style(inactive_style(check_resolution_active_multi(&res)))
                                 .on_press(WallpaperMessage::ResolutionSelected(res.clone())),
-                        )
+                            true => make_button(btn_state, &res.to_string())
+                                .style(inactive_style(check_minimum_resolution_active(&res)))
+                                .on_press(WallpaperMessage::SetMinimumResolution(res.clone())),
+                        })
                     },
                 ))
             })
+            .push(Checkbox::new(
+                self.is_minimum_set,
+                "Minimum resolution",
+                WallpaperMessage::ResolutionIsSingleTargetChanged,
+            ))
     }
 }

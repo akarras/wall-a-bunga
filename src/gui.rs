@@ -110,11 +110,13 @@ pub(crate) enum WallpaperMessage {
     ChooseDirectory(),
     DirectoryChosen(Option<PathBuf>),
     ResolutionSelected(XYCombo),
+    ResolutionIsSingleTargetChanged(bool),
     AspectRatioSelected(XYCombo),
     SaveSettings(),
     SaveCompleted(()),
     SetIgnoreDownloaded(bool),
     DownloadUpdated(DownloadStatus),
+    SetMinimumResolution(XYCombo),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -444,6 +446,9 @@ impl Application for WallpaperUi {
                 self.settings.save_directory = None;
             }
             WallpaperMessage::ResolutionSelected(resolution) => {
+                // Clear out the minimum resolution option
+                self.search_options.minimum_resolution = None;
+                debug!("Resolution selected {}", resolution);
                 let res_map = self
                     .search_options
                     .resolutions
@@ -458,6 +463,7 @@ impl Application for WallpaperUi {
                 }
             }
             WallpaperMessage::AspectRatioSelected(aspect_ratio) => {
+                info!("Selected aspect ratio {}", aspect_ratio);
                 let ratio_map = self.search_options.ratios.get_or_insert(HashSet::new());
                 if ratio_map.contains(&aspect_ratio) {
                     ratio_map.remove(&aspect_ratio);
@@ -472,7 +478,9 @@ impl Application for WallpaperUi {
                     WallpaperMessage::SaveCompleted,
                 );
             }
-            WallpaperMessage::SaveCompleted(()) => {}
+            WallpaperMessage::SaveCompleted(()) => {
+                info!("Save complete!");
+            }
             WallpaperMessage::SetIgnoreDownloaded(value) => {
                 self.settings.ignore_downloaded = value;
             }
@@ -515,6 +523,15 @@ impl Application for WallpaperUi {
                     self.download_manager.remove_download(&id);
                 }
             },
+            WallpaperMessage::ResolutionIsSingleTargetChanged(res_mode) => {
+                self.resolution_menu.is_minimum_set = res_mode;
+            }
+            WallpaperMessage::SetMinimumResolution(resolution) => {
+                // clear out other resolutions options in preference of min resolution
+                info!("Minimum resolution set to {}", resolution);
+                self.search_options.resolutions = None;
+                self.search_options.minimum_resolution = Some(resolution);
+            }
         }
         Command::none()
     }
@@ -770,9 +787,10 @@ impl Application for WallpaperUi {
             .push(filter_row)
             .push(match self.controls.submenu {
                 Submenu::Settings => settings_row,
-                Submenu::Resolution => self
-                    .resolution_menu
-                    .build_resolution_row(&self.search_options.resolutions),
+                Submenu::Resolution => self.resolution_menu.build_resolution_row(
+                    &self.search_options.resolutions,
+                    &self.search_options.minimum_resolution,
+                ),
                 Submenu::AspectRatio => self
                     .aspect_menu
                     .build_ratio_row(&self.search_options.ratios), // todo implement

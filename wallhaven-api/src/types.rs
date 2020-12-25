@@ -267,6 +267,8 @@ pub struct SearchOptions {
     pub seed: Option<String>,
     #[serde_as(as = "Option<StringWithSeparator::<CommaSeparator, XYCombo>>")]
     pub resolutions: Option<HashSet<XYCombo>>,
+    #[serde(rename = "atleast")]
+    pub minimum_resolution: Option<XYCombo>,
     #[serde_as(as = "Option<StringWithSeparator::<CommaSeparator, XYCombo>>")]
     pub ratios: Option<HashSet<XYCombo>>,
 }
@@ -456,6 +458,7 @@ mod tests {
             api_key: Some("supersecretapikey".to_string()),
             seed: Some("seedyroots".to_string()),
             resolutions: Some(vec![XYCombo { x: 1920, y: 1280 }].into_iter().collect()),
+            minimum_resolution: Some(XYCombo { x: 1920, y: 1280 }),
             ratios: Some(vec![XYCombo { x: 16, y: 9 }].into_iter().collect()),
         };
         let request = client
@@ -463,7 +466,7 @@ mod tests {
             .query(&query_options)
             .build()
             .unwrap();
-        assert_eq!(&request.url().to_string(), "http://test.test/?q=Zero+Two&page=2&purity=011&categories=010&sorting=views&apikey=supersecretapikey&seed=seedyroots&resolutions=1920x1280&ratios=16x9");
+        assert_eq!(&request.url().to_string(), "http://test.test/?q=Zero+Two&page=2&purity=011&categories=010&sorting=views&apikey=supersecretapikey&seed=seedyroots&resolutions=1920x1280&atleast=1920x1280&ratios=16x9");
     }
 
     #[test]
@@ -483,9 +486,10 @@ mod tests {
             .query(&query_options)
             .build()
             .unwrap();
-        assert_eq!(
-            &request.url().to_string(),
-            "http://test.test/?q=Zero+Two&resolutions=1920x1280%2C2550x1440"
+        let url = request.url().to_string();
+        assert!(
+            url.eq(&"http://test.test/?q=Zero+Two&resolutions=1920x1280%2C2550x1440")
+                || url.eq("http://test.test/?q=Zero+Two&resolutions=2550x1440%2C1920x1280")
         );
     }
 
@@ -503,5 +507,23 @@ mod tests {
             .build()
             .unwrap();
         assert_eq!(&request.url().to_string(), "http://test.test/?q=Zero+Two");
+    }
+
+    #[test]
+    fn minimum_resolution_parameter() {
+        let query_options = SearchOptions {
+            minimum_resolution: Some(XYCombo { x: 1920, y: 1080 }),
+            ..Default::default()
+        };
+        let client = reqwest::Client::new();
+        let request = client
+            .get("http://test.test/")
+            .query(&query_options)
+            .build()
+            .unwrap();
+        assert_eq!(
+            &request.url().to_string(),
+            "http://test.test/?atleast=1920x1080"
+        );
     }
 }
