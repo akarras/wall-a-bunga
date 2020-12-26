@@ -173,6 +173,20 @@ impl Default for Sorting {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub enum SortingOrder {
+    #[serde(rename = "asc")]
+    Ascending,
+    #[serde(rename = "desc")]
+    Descending,
+}
+
+impl Default for SortingOrder {
+    fn default() -> Self {
+        SortingOrder::Descending
+    }
+}
+
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct XYCombo {
     pub x: i32,
@@ -261,7 +275,11 @@ pub struct SearchOptions {
     pub page: Option<i32>,
     pub purity: Option<Purity>,
     pub categories: Option<Categories>,
+    /// Method used to sort the wallpapers
     pub sorting: Option<Sorting>,
+    /// Optional order that results will be sorted in, API defaults this to desc if not provided
+    #[serde(rename = "order")]
+    pub sorting_order: Option<SortingOrder>,
     #[serde(rename = "apikey")]
     pub api_key: Option<String>,
     pub seed: Option<String>,
@@ -341,19 +359,25 @@ pub struct ListingData {
     pub thumbs: Thumbs,
 }
 
+/// Contains URLs to various sized thumbnails
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Thumbs {
+    /// Large sized thumbnail URL
+    /// ## example: `https://th.wallhaven.cc/lg/j3/j38zxw.jpg`
     pub large: String,
+    /// Original sized thumbnail URL
+    /// ## example: `https://th.wallhaven.cc/orig/j3/j38zxw.jpg`
     pub original: String,
+    /// Small sized thumbnail URL
+    /// ## example: `https://th.wallhaven.cc/small/j3/j38zxw.jpg`
     pub small: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
-pub struct SerializeableInt {
-    val: i64,
-}
-
-pub struct StringOrIntVisitor;
+/// This visitor contains black magic to account for an API quirk where if an API token is provided
+/// one of the fields will return as a string, but will return as an integer if not authenticated
+/// There might be a cleaner way to handle this with serde, but this works and I don't want to
+/// write another visitor again, my brain hurts.
+struct StringOrIntVisitor;
 
 impl<'de> Visitor<'de> for StringOrIntVisitor {
     type Value = i64;
@@ -394,30 +418,7 @@ where
     deserialize.deserialize_any(StringOrIntVisitor)
 }
 
-/*impl<'de> Deserialize<'de> for StringOrInt {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error> where
-        D: Deserializer<'de> {
-        if let Ok(str) = deserializer.deserialize_str() {
-            if let Ok(val) = str.parse() {
-                Ok(val)
-            }
-        }
-        deserializer.deserialize_i64()
-
-
-    }
-
-    fn deserialize_in_place<D>(deserializer: D, place: &mut Self) -> Result<(), <D as Deserializer<'de>>::Error> where
-        D: Deserializer<'de>, {
-        if let Ok(str) = deserializer.deserialize_str(place) {
-            if let Ok(val) = str.parse::<i64>() {
-                Ok(val)
-            }
-        }
-        deserializer.deserialize_i64(place)
-    }
-}*/
-
+/// Contains metadata returned by the search such as the page information or the query that was used
 #[derive(Default, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub struct SearchMetaData {
@@ -432,7 +433,7 @@ pub struct SearchMetaData {
 
 #[cfg(test)]
 mod tests {
-    use crate::types::{Categories, Purity, Sorting, XYCombo};
+    use crate::types::{Categories, Purity, Sorting, SortingOrder, XYCombo};
     use crate::SearchOptions;
 
     // ensure that the search options query string serializes properly
@@ -455,6 +456,7 @@ mod tests {
                 people: false,
             }),
             sorting: Some(Sorting::Views),
+            sorting_order: Some(SortingOrder::Descending),
             api_key: Some("supersecretapikey".to_string()),
             seed: Some("seedyroots".to_string()),
             resolutions: Some(vec![XYCombo { x: 1920, y: 1280 }].into_iter().collect()),
@@ -466,7 +468,7 @@ mod tests {
             .query(&query_options)
             .build()
             .unwrap();
-        assert_eq!(&request.url().to_string(), "http://test.test/?q=Zero+Two&page=2&purity=011&categories=010&sorting=views&apikey=supersecretapikey&seed=seedyroots&resolutions=1920x1280&atleast=1920x1280&ratios=16x9");
+        assert_eq!(&request.url().to_string(), "http://test.test/?q=Zero+Two&page=2&purity=011&categories=010&sorting=views&order=desc&apikey=supersecretapikey&seed=seedyroots&resolutions=1920x1280&atleast=1920x1280&ratios=16x9");
     }
 
     #[test]
@@ -524,6 +526,25 @@ mod tests {
         assert_eq!(
             &request.url().to_string(),
             "http://test.test/?atleast=1920x1080"
+        );
+    }
+
+    #[test]
+    fn sorting_order() {
+        let query_options = SearchOptions {
+            sorting: Some(Sorting::Views),
+            sorting_order: Some(SortingOrder::Ascending),
+            ..Default::default()
+        };
+        let client = reqwest::Client::new();
+        let request = client
+            .get("http://test.test/")
+            .query(&query_options)
+            .build()
+            .unwrap();
+        assert_eq!(
+            &request.url().to_string(),
+            "http://test.test/?sorting=views&order=asc"
         );
     }
 }

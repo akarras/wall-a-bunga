@@ -1,10 +1,7 @@
 use crate::types::{GenericResponse, ListingData, SearchOptions};
 use log::{debug, info};
-use reqwest::Client;
 use thiserror::Error;
 
-/// Provides a client that provides async access to the Wallhaven api
-/// Async because I like it that way :)
 pub mod types;
 
 #[derive(Error, Debug)]
@@ -17,16 +14,30 @@ pub enum WallhavenApiClientError {
 
 pub type WHResult<T> = Result<T, WallhavenApiClientError>;
 
+/// Provides a client that provides async access to the Wallhaven api
+/// No blocking client is provided, because I don't want to :)
 #[derive(Default, Debug, Clone)]
-pub struct WallhavenClient {
-    client: Client,
-}
+pub struct WallhavenClient {}
 
 impl WallhavenClient {
-    pub fn new() -> Self {
-        Default::default()
-    }
-
+    /// Searches wallhaven.cc using the given search options
+    ///
+    /// # Arguments
+    /// * `options` - Provides a top down struct of all available search options
+    ///
+    /// # Example Usage
+    /// ```
+    /// use wallhaven_api::{WallhavenClient, types::SearchOptions};
+    ///
+    /// async fn search_example() {
+    ///     let results = WallhavenClient::search(&SearchOptions {
+    ///         query: Some("Cats".to_string()),
+    ///         ..Default::default()
+    ///     }).await;
+    ///     // Just print out the results as an example
+    ///     println!("received wallpapers: {:?}", results);
+    /// }
+    /// ```
     pub async fn search(options: &SearchOptions) -> WHResult<GenericResponse<Vec<ListingData>>> {
         let search_url_base = "https://wallhaven.cc/api/v1/search";
         let client = reqwest::Client::builder().build()?;

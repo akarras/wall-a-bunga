@@ -39,14 +39,6 @@ impl DownloadManager {
         self.downloads.remove(id);
     }
 
-    /*pub fn get_subscription(&self) -> Option<iced::Subscription<DownloadStatus>> {
-
-        self.downloads.lock()
-            .expect("Failed getting lock")
-            .pop_front()
-            .map(|n| iced::Subscription::from_recipe(n.clone()))
-    }*/
-
     pub fn get_subscriptions(&self) -> Vec<iced::Subscription<DownloadStatus>> {
         self.downloads
             .iter()
