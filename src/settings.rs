@@ -26,13 +26,14 @@ impl SavedSettings {
             .unwrap_or_else(|_| {
                 panic!("Failed to create or open config file at {:?}", config_file)
             });
-        file.write_all(
-            serde_json::to_string(&settings)
-                .expect("Failed to serialize config")
-                .as_bytes(),
-        )
-        .await
-        .expect("Don't fail saving this plz");
+        let message = serde_json::to_string(&settings).expect("Failed to serialize config");
+        let bytes = message.as_bytes();
+        file.write_all(bytes)
+            .await
+            .expect("Don't fail saving this plz");
+        file.set_len(bytes.len() as u64)
+            .await
+            .expect("Failed changing size of config");
         info!("Saved settings to {:?}", config_file);
     }
 
