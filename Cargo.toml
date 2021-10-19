@@ -1,6 +1,6 @@
 [package]
 name = "wall-a-bunga"
-version = "0.1.1-dev"
+version = "0.1.1"
 authors = ["Chew <chew@akarras.com>"]
 edition = "2018"
 
@@ -8,13 +8,15 @@ edition = "2018"
 
 [dependencies]
 wallapi = { package = "wallhaven-api", path = "wallhaven-api"}
-iced = {version = "0.2", features = ["image", "tokio_old"]}
-reqwest = {version = "0.10.9", features = ["json"]}
+iced = {git = "https://github.com/yusdacra/iced.git", branch = "tokio-1.0", features = ["image", "tokio"]}
+iced_futures = {git = "https://github.com/yusdacra/iced.git", branch = "tokio-1.0", features = ["tokio_new"]}
+iced_native = {git = "https://github.com/yusdacra/iced.git", branch = "tokio-1.0"}
+reqwest = {git = "https://github.com/messense/reqwest.git", branch = "tokio-0-3", features = ["json"]}
 futures = "0.3.8"
 thiserror = "1.0.22"
 log = "0.4.11"
 pretty_env_logger = "0.4.0"
-tokio = { version = "~0.2", features = ["fs"] }
+tokio = { version = "1.0", features = ["fs"] }
 rand = "0.7.3"
 anyhow = "1.0.35"
 serde = {version = "1.0.118", features = ["derive"] }
@@ -23,6 +25,5 @@ platform-dirs = "0.3.0"
 serde_json = "1.0.60"
 num = "0.3.1"
 itertools = "0.9.0"
-iced_native = "0.3.0"
 bytes = "0.5.6"
 indexmap = "1.6.1"

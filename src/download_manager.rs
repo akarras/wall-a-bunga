@@ -6,6 +6,7 @@ use log::{debug, error, info};
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
+use reqwest::Response;
 
 #[derive(Debug, Clone)]
 pub(crate) struct DownloadManager {
@@ -50,6 +51,10 @@ impl DownloadManager {
     pub fn view(&self) -> Column<WallpaperMessage> {
         Column::new().push(Text::new(format!("Downloads: {}", self.downloads.len())))
     }
+
+    pub fn set_concurrent_downloads(&mut self, concurrent_downloads: usize) {
+        self.concurrent_downloads = concurrent_downloads;
+    }
 }
 
 /// Provides a subscriber for Iced to return messages
@@ -71,7 +76,7 @@ enum DownloadState {
         save_path: PathBuf,
     },
     Downloading {
-        response: Box<reqwest::Response>,
+        response: Box<Response>,
         file: Box<File>,
         total: u64,
         downloaded: u64,
@@ -83,7 +88,6 @@ enum DownloadState {
 
 #[derive(Clone, Debug)]
 pub(crate) enum DownloadStatus {
-    Starting(String),
     Progress(String, f32),
     Failed(String),
     Finished(String),
@@ -119,7 +123,7 @@ where
                                 if let Some(total) = response.content_length() {
                                     if let Ok(file) = File::create(&save_path).await {
                                         Some((
-                                            DownloadStatus::Starting(id.clone()),
+                                            DownloadStatus::Progress(id.clone(), 0.0),
                                             DownloadState::Downloading {
                                                 response: Box::new(response),
                                                 file: Box::new(file),
@@ -149,9 +153,8 @@ where
                         save_path,
                     } => match response.chunk().await {
                         Ok(Some(chunk)) => {
-                            debug!("Downloaded chunk bytes {}", chunk.len());
+                            debug!("Downloaded chunk {} bytes {}", &id, chunk.len());
                             let downloaded = downloaded + chunk.len() as u64;
-
                             let percentage = (downloaded as f32 / total as f32) * 100.0;
                             if file.write(&chunk).await.is_ok() {
                                 Some((
@@ -177,7 +180,7 @@ where
                         Err(_) => Some((DownloadStatus::Failed(id), DownloadState::Completed)),
                     },
                     DownloadState::Completed => {
-                        let _: () = iced::futures::future::pending().await;
+                        debug!("Closing download");
                         None
                     }
                 }

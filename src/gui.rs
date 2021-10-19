@@ -5,14 +5,10 @@ use crate::style::{button_style, inactive_style};
 use crate::submenus::ratio_menu::RatioMenu;
 use crate::submenus::resolution_menu::ResolutionOptionsMenu;
 use anyhow::Result;
-use iced::{
-    button, executor, image, pick_list, scrollable, text_input, Align, Application, Button,
-    Checkbox, Column, Command, Container, Element, Image, Length, PickList, ProgressBar, Row,
-    Scrollable, Space, Text, TextInput,
-};
+use iced::{button, executor, image, pick_list, scrollable, text_input, Align, Application, Button, Checkbox, Column, Command, Container, Element, Image, Length, PickList, ProgressBar, Row, Scrollable, Space, Text, TextInput, Clipboard};
 use iced_native::Subscription;
 use log::{debug, error, info};
-use native_dialog::Dialog;
+use native_dialog::FileDialog;
 use rand::{thread_rng, RngCore};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -30,11 +26,8 @@ pub(crate) struct WallpaperUi {
     search_state: text_input::State,
     search_value: String,
     search_button: button::State,
-    current_page: u32,
-    max_pages: Option<u32>,
     search_results: Vec<(ListingData, ImageView)>,
     search_meta: Option<SearchMetaData>,
-    client: WallhavenClient,
     search_options: SearchOptions,
     error_message: String,
     scroll_state: scrollable::State,
@@ -46,6 +39,25 @@ pub(crate) struct WallpaperUi {
     resolution_menu: ResolutionOptionsMenu,
     aspect_menu: RatioMenu,
     download_manager: DownloadManager,
+    concurrent_download_control: IncrementControl
+}
+
+#[derive(Debug, Default)]
+struct IncrementControl {
+    increment_button: button::State,
+    decrement_button: button::State,
+    value: i32
+}
+
+impl IncrementControl {
+    fn view(&mut self) -> Row<WallpaperMessage> {
+        Row::new()
+            .push(Button::new(&mut self.decrement_button, Text::new("-"))
+                .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value - 1)))
+            .push(Text::new(format!("{}", self.value)))
+            .push(Button::new(&mut self.increment_button, Text::new("+"))
+                .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value + 1)))
+    }
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -117,6 +129,7 @@ pub(crate) enum WallpaperMessage {
     SetIgnoreDownloaded(bool),
     DownloadUpdated(DownloadStatus),
     SetMinimumResolution(XYCombo),
+    ChangeConcurrentDownloads(i32),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -136,7 +149,6 @@ impl Default for Submenu {
 #[derive(Debug, Default, Clone)]
 pub(crate) struct SearchControls {
     next_page_button: button::State,
-    prev_page_button: button::State,
     sorting_picker: pick_list::State<Sorting>,
     download_button: button::State,
     nsfw_button: button::State,
@@ -145,7 +157,6 @@ pub(crate) struct SearchControls {
     general_button: button::State,
     anime_button: button::State,
     people_button: button::State,
-    settings: button::State,
     submenu: Submenu,
     settings_button: button::State,
     save_settings_button: button::State,
@@ -234,9 +245,7 @@ impl WallpaperUi {
     }
 
     async fn choose_directory() -> Option<PathBuf> {
-        let dir_picker = native_dialog::OpenSingleDir { dir: None };
-
-        dir_picker.show().ok().flatten()
+        FileDialog::new().show_open_single_dir().ok().flatten()
     }
 }
 
@@ -255,6 +264,10 @@ impl Application for WallpaperUi {
                     ..Default::default()
                 },
                 api_key: key.unwrap_or_default(),
+                concurrent_download_control: IncrementControl {
+                    value: 5,
+                    ..Default::default()
+                },
                 ..Self::default()
             },
             Command::perform(
@@ -268,7 +281,7 @@ impl Application for WallpaperUi {
         "wall-a-bunga".to_string()
     }
 
-    fn update(&mut self, message: WallpaperMessage) -> Command<WallpaperMessage> {
+    fn update(&mut self, message: WallpaperMessage, _clipboard: &mut Clipboard) -> Command<WallpaperMessage> {
         match message {
             WallpaperMessage::Search() => {
                 self.search_options.set_query(self.search_value.clone());
@@ -485,15 +498,6 @@ impl Application for WallpaperUi {
                 self.settings.ignore_downloaded = value;
             }
             WallpaperMessage::DownloadUpdated(u) => match u {
-                DownloadStatus::Starting(id) => {
-                    if let Some((_, i)) = self
-                        .search_results
-                        .iter_mut()
-                        .find(|(val, _)| val.id.eq(&id))
-                    {
-                        i.state = ImageState::Downloading(0.0);
-                    }
-                }
                 DownloadStatus::Progress(id, progress) => {
                     if let Some((_, i)) = self
                         .search_results
@@ -525,12 +529,20 @@ impl Application for WallpaperUi {
             },
             WallpaperMessage::ResolutionIsSingleTargetChanged(res_mode) => {
                 self.resolution_menu.is_minimum_set = res_mode;
-            }
+            },
             WallpaperMessage::SetMinimumResolution(resolution) => {
                 // clear out other resolutions options in preference of min resolution
                 info!("Minimum resolution set to {}", resolution);
                 self.search_options.resolutions = None;
                 self.search_options.minimum_resolution = Some(resolution);
+            },
+            WallpaperMessage::ChangeConcurrentDownloads(c) => {
+                let value = match c > 0 && c < 10 {
+                    true => c,
+                    false => self.concurrent_download_control.value
+                };
+                self.concurrent_download_control.value = value;
+                self.download_manager.set_concurrent_downloads(value as usize)
             }
         }
         Command::none()
@@ -715,51 +727,6 @@ impl Application for WallpaperUi {
                     .on_press(WallpaperMessage::DownloadImages()),
             );
 
-        let settings_row = Row::new()
-            .align_items(Align::Center)
-            .push(
-                Column::new()
-                    .width(Length::FillPortion(4))
-                    .push(Text::new("wallhaven.cc api token (required for nsfw):"))
-                    .push(TextInput::new(
-                        &mut self.api_text_input,
-                        "api key",
-                        &*self.api_key,
-                        WallpaperMessage::ApiTokenSet,
-                    )),
-            )
-            .push(
-                Row::new()
-                    .width(Length::FillPortion(4))
-                    .push(
-                        Column::new()
-                            .push(Text::new("save directory:"))
-                            .push(Text::new(
-                                self.settings
-                                    .save_directory
-                                    .as_ref()
-                                    .unwrap_or(&"./".to_string()),
-                            )),
-                    )
-                    .push(
-                        make_button(
-                            &mut self.controls.choose_directory_button,
-                            "Choose Directory",
-                        )
-                        .on_press(WallpaperMessage::ChooseDirectory()),
-                    ),
-            )
-            .push(Checkbox::new(
-                self.settings.ignore_downloaded,
-                "Ignore downloaded",
-                WallpaperMessage::SetIgnoreDownloaded,
-            ))
-            .push(
-                make_button(&mut self.controls.save_settings_button, "save settings")
-                    .on_press(WallpaperMessage::SaveSettings())
-                    .width(Length::FillPortion(2)),
-            );
-
         let (current_page, last_page) = self
             .search_meta
             .as_ref()
@@ -777,6 +744,64 @@ impl Application for WallpaperUi {
             .push(self.download_manager.view())
             .spacing(5);
 
+        let submenu = match self.controls.submenu {
+            Submenu::Settings => Column::new()
+                .align_items(Align::Center)
+                .push(Column::new()
+                    .push(Text::new("Concurrent Downloads"))
+                    .push(self.concurrent_download_control.view()))
+                .push(
+                    Column::new()
+                        .width(Length::FillPortion(4))
+                        .push(Text::new("wallhaven.cc api token (required for nsfw):"))
+                        .push(TextInput::new(
+                            &mut self.api_text_input,
+                            "api key",
+                            &*self.api_key,
+                            WallpaperMessage::ApiTokenSet,
+                        )),
+                )
+                .push(
+                    Row::new()
+                        .width(Length::FillPortion(4))
+                        .push(
+                            Column::new()
+                                .push(Text::new("save directory:"))
+                                .push(Text::new(
+                                    self.settings
+                                        .save_directory
+                                        .as_ref()
+                                        .unwrap_or(&"./".to_string()),
+                                )),
+                        )
+                        .push(
+                            make_button(
+                                &mut self.controls.choose_directory_button,
+                                "Choose Directory",
+                            )
+                                .on_press(WallpaperMessage::ChooseDirectory()),
+                        ),
+                )
+                .push(Checkbox::new(
+                    self.settings.ignore_downloaded,
+                    "Ignore downloaded",
+                    WallpaperMessage::SetIgnoreDownloaded,
+                ))
+                .push(
+                    make_button(&mut self.controls.save_settings_button, "save settings")
+                        .on_press(WallpaperMessage::SaveSettings())
+                        .width(Length::FillPortion(2)),
+                ),
+            Submenu::Resolution => Column::new().push(self.resolution_menu.build_resolution_row(
+                &self.search_options.resolutions,
+                &self.search_options.minimum_resolution,
+            )),
+            Submenu::AspectRatio => Column::new().push(self
+                .aspect_menu
+                .build_ratio_row(&self.search_options.ratios)), // todo implement
+            Submenu::None => Column::new(),
+        };
+
         let column = Column::new()
             .width(Length::Fill)
             .height(Length::Fill)
@@ -785,17 +810,7 @@ impl Application for WallpaperUi {
             .spacing(10)
             .push(status_row)
             .push(filter_row)
-            .push(match self.controls.submenu {
-                Submenu::Settings => settings_row,
-                Submenu::Resolution => self.resolution_menu.build_resolution_row(
-                    &self.search_options.resolutions,
-                    &self.search_options.minimum_resolution,
-                ),
-                Submenu::AspectRatio => self
-                    .aspect_menu
-                    .build_ratio_row(&self.search_options.ratios), // todo implement
-                Submenu::None => Row::new(),
-            })
+            .push(submenu)
             .push(text_input)
             .push(
                 Scrollable::new(&mut self.scroll_state)

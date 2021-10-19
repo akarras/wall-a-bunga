@@ -1,6 +1,5 @@
 use crate::{WHResult, WallhavenApiClientError};
 use serde::de::Visitor;
-use serde::export::Formatter;
 /// Types used to serialize/deserialize from the http://wallhaven.cc API
 /// Derived directly from https://wallhaven.cc/help/api
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -8,7 +7,7 @@ use serde_with::*;
 use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::fmt;
-use std::fmt::Display;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Clone)]
 pub struct Purity {
