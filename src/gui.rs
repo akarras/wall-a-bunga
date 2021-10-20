@@ -1,12 +1,16 @@
 use crate::download_manager::{DownloadManager, DownloadStatus};
 use crate::settings::SavedSettings;
-use crate::style::make_button;
 use crate::style::{button_style, inactive_style};
+use crate::style::{make_button, make_button_fa};
 use crate::submenus::ratio_menu::RatioMenu;
 use crate::submenus::resolution_menu::ResolutionOptionsMenu;
 use anyhow::Result;
-use iced::{button, executor, image, pick_list, scrollable, text_input, Application, Button, Checkbox, Column, Command, Container, Element, Image, Length, PickList, ProgressBar, Row, Scrollable, Space, Text, TextInput, Alignment, alignment};
-use iced_native::{Subscription, Clipboard};
+use iced::{
+    alignment, button, executor, image, pick_list, scrollable, text_input, Alignment, Application,
+    Button, Checkbox, Column, Command, Container, Element, Image, Length, PickList, ProgressBar,
+    Row, Scrollable, Space, Text, TextInput,
+};
+use iced_native::Subscription;
 use log::{debug, error, info};
 use native_dialog::FileDialog;
 use rand::{thread_rng, RngCore};
@@ -19,7 +23,6 @@ use wallapi::types::{
     XYCombo,
 };
 use wallapi::{WallhavenApiClientError, WallhavenClient};
-use itertools::Itertools;
 
 #[derive(Debug, Default)]
 pub(crate) struct WallpaperUi {
@@ -113,7 +116,6 @@ pub(crate) enum SelectionUpdateType {
 #[derive(Debug, Clone)]
 pub(crate) enum WallpaperMessage {
     Search(),
-    NextPage(),
     SearchUpdated(String),
     SearchReceived(GenericResponse<Vec<(ListingData, ImageView)>>),
     /// Where String == image.id
@@ -135,6 +137,7 @@ pub(crate) enum WallpaperMessage {
     DownloadUpdated(DownloadStatus),
     SetMinimumResolution(XYCombo),
     ChangeConcurrentDownloads(i32),
+    Scroll(f32),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -153,7 +156,6 @@ impl Default for Submenu {
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct SearchControls {
-    next_page_button: button::State,
     sorting_picker: pick_list::State<Sorting>,
     download_button: button::State,
     nsfw_button: button::State,
@@ -252,6 +254,17 @@ impl WallpaperUi {
     async fn choose_directory() -> Option<PathBuf> {
         FileDialog::new().show_open_single_dir().ok().flatten()
     }
+
+    /// guesstimate our loading status based on our page
+    fn get_loading_status(&mut self) -> Text {
+        let page = self.search_options.page.unwrap_or_default() as i64;
+        let is_loading = match &self.search_meta {
+            Some(meta) => meta.current_page != page,
+            None => true,
+        };
+        let loading_text = if is_loading { "Loading..." } else { "" };
+        Text::new(loading_text).height(Length::Units(72))
+    }
 }
 
 impl Application for WallpaperUi {
@@ -286,10 +299,7 @@ impl Application for WallpaperUi {
         "wall-a-bunga".to_string()
     }
 
-    fn update(
-        &mut self,
-        message: WallpaperMessage,
-    ) -> Command<WallpaperMessage> {
+    fn update(&mut self, message: WallpaperMessage) -> Command<WallpaperMessage> {
         match message {
             WallpaperMessage::Search() => {
                 self.search_options.set_query(self.search_value.clone());
@@ -321,20 +331,6 @@ impl Application for WallpaperUi {
                 }
                 debug!("Updating search meta: {:?}", values.meta);
                 self.search_meta = values.meta;
-            }
-            WallpaperMessage::NextPage() => {
-                self.search_options.page = Some(self.search_options.page.unwrap_or(1) + 1);
-                return Command::perform(
-                    WallpaperUi::search_command(
-                        self.search_options.clone(),
-                        self.settings
-                            .save_directory
-                            .as_ref()
-                            .unwrap_or(&"./".to_string())
-                            .into(),
-                    ),
-                    WallpaperMessage::SearchReceived,
-                );
             }
             WallpaperMessage::SelectionUpdate(option) => {
                 match option {
@@ -553,6 +549,32 @@ impl Application for WallpaperUi {
                 self.download_manager
                     .set_concurrent_downloads(value as usize)
             }
+            WallpaperMessage::Scroll(scroll) => {
+                // scroll ranges from 0 to 1. if 1, try to load more wallpapers
+                let search_meta = if let Some(search_meta) = &self.search_meta {
+                    search_meta
+                } else {
+                    return Command::none();
+                };
+                let page = self.search_options.page.unwrap_or(1);
+                if scroll >= 1.0
+                    && page < search_meta.last_page as i32
+                    && page == search_meta.current_page as i32
+                {
+                    self.search_options.page = Some(page + 1);
+                    return Command::perform(
+                        WallpaperUi::search_command(
+                            self.search_options.clone(),
+                            self.settings
+                                .save_directory
+                                .as_ref()
+                                .unwrap_or(&"./".to_string())
+                                .into(),
+                        ),
+                        WallpaperMessage::SearchReceived,
+                    );
+                }
+            }
         }
         Command::none()
     }
@@ -563,6 +585,7 @@ impl Application for WallpaperUi {
     }
 
     fn view(&mut self) -> Element<'_, Self::Message> {
+        let loading_status = self.get_loading_status();
         let selected_count = self
             .search_results
             .iter()
@@ -595,19 +618,19 @@ impl Application for WallpaperUi {
                                     &mut image.button_state,
                                     Image::new(image.image_handle.clone()),
                                 )
-                                    .style(match image.state {
-                                        ImageState::Selected => button_style::Button::Primary,
-                                        ImageState::Unselected => button_style::Button::Inactive,
-                                        ImageState::Queued => button_style::Button::Downloading,
-                                        ImageState::Downloading(_) => button_style::Button::Downloading,
-                                        ImageState::Downloaded => button_style::Button::Downloaded,
-                                        ImageState::Failed => button_style::Button::Failed,
-                                    })
-                                    .on_press(
-                                        WallpaperMessage::SelectionUpdate(SelectionUpdateType::Single(
-                                            listing.id.clone(),
-                                        )),
-                                    ),
+                                .style(match image.state {
+                                    ImageState::Selected => button_style::Button::Primary,
+                                    ImageState::Unselected => button_style::Button::Inactive,
+                                    ImageState::Queued => button_style::Button::Downloading,
+                                    ImageState::Downloading(_) => button_style::Button::Downloading,
+                                    ImageState::Downloaded => button_style::Button::Downloaded,
+                                    ImageState::Failed => button_style::Button::Failed,
+                                })
+                                .on_press(
+                                    WallpaperMessage::SelectionUpdate(SelectionUpdateType::Single(
+                                        listing.id.clone(),
+                                    )),
+                                ),
                             );
                         match image.state {
                             ImageState::Downloading(progress) => col.push(
@@ -619,17 +642,11 @@ impl Application for WallpaperUi {
                     .fold(Row::new().spacing(5), |row, item| row.push(item))
             })
             .fold(
-                Column::new()
-                    .spacing(5)
-                    .push(Text::new("Search results").size(16)),
+                Column::new().spacing(5).push(Text::new("Search results")),
                 |column, row| column.push(row),
             )
-            .push(
-                make_button(&mut self.controls.next_page_button, "Load More")
-                    .on_press(WallpaperMessage::NextPage()),
-            )
+            .push(loading_status)
             .align_items(Alignment::Center);
-
 
         let text_input = Row::new()
             .height(Length::Shrink)
@@ -733,7 +750,7 @@ impl Application for WallpaperUi {
                     .on_press(WallpaperMessage::ChangeSubmenu(Submenu::Settings)),
             )
             .push(
-                make_button(&mut self.controls.download_button, "download")
+                make_button_fa(&mut self.controls.download_button, "download", "download")
                     .on_press(WallpaperMessage::DownloadImages()),
             );
 
@@ -827,6 +844,7 @@ impl Application for WallpaperUi {
             .push(text_input)
             .push(
                 Scrollable::new(&mut self.scroll_state)
+                    .on_scroll(WallpaperMessage::Scroll)
                     .push(images)
                     .height(Length::Fill),
             );

@@ -1,4 +1,5 @@
 mod download_manager;
+mod font_awesome;
 mod gui;
 mod settings;
 mod style;
