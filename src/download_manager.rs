@@ -1,12 +1,14 @@
 use crate::gui::WallpaperMessage;
 use iced::futures::stream::BoxStream;
-use iced::{Column, Text};
+use iced::{Text, Length, Row};
 use indexmap::IndexMap;
 use log::{debug, error, info};
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 use reqwest::Response;
+use font_awesome_as_a_crate::Type;
+use iced::svg::Handle;
 
 #[derive(Debug, Clone)]
 pub(crate) struct DownloadManager {
@@ -51,11 +53,19 @@ impl DownloadManager {
             .collect()
     }
 
-    pub fn view(&self) -> Column<WallpaperMessage> {
+    pub fn view(&self) -> Row<WallpaperMessage> {
+        let download_svg = font_awesome_as_a_crate::svg(Type::Solid, "download").unwrap();
+        let complete_svg = font_awesome_as_a_crate::svg(Type::Solid, "check").unwrap();
+        let download_icon = iced::svg::Svg::new(Handle::from_memory(download_svg.as_bytes().to_vec()));
+        let complete_icon = iced::svg::Svg::new(Handle::from_memory(complete_svg.as_bytes().to_vec()));
         if self.downloads.len() > 0 || self.finished_downloads > 0 {
-            Column::new().push(Text::new(format!("active downloads: {} finished downloads: {}", self.downloads.len(), self.finished_downloads)))
+            Row::new().push(download_icon.height(Length::Units(15)))
+                .push(Text::new(format!("{}", self.downloads.len())))
+                .push(complete_icon.height(Length::Units(15)))
+                .push(Text::new(format!("{}", self.finished_downloads)))
         } else {
-            Column::new()
+            Row::new().push(download_icon.height(Length::Units(15)))
+                .push(Text::new("0"))
         }
     }
 

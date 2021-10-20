@@ -8,22 +8,24 @@ edition = "2018"
 
 [dependencies]
 wallapi = { package = "wallhaven-api", path = "wallhaven-api"}
-iced = {git = "https://github.com/yusdacra/iced.git", branch = "tokio-1.0", features = ["image", "tokio"]}
-iced_futures = {git = "https://github.com/yusdacra/iced.git", branch = "tokio-1.0", features = ["tokio_new"]}
-iced_native = {git = "https://github.com/yusdacra/iced.git", branch = "tokio-1.0"}
-reqwest = {git = "https://github.com/messense/reqwest.git", branch = "tokio-0-3", features = ["json"]}
-futures = "0.3.8"
-thiserror = "1.0.22"
-log = "0.4.11"
+iced = {version = "0.3.0", features = ["image", "tokio", "svg"]}
+iced_futures = "0.3.0"
+iced_native = "0.4.0"
+futures = "0.3.17"
+thiserror = "1.0.29"
+log = "0.4.14"
 pretty_env_logger = "0.4.0"
-tokio = { version = "1.0", features = ["fs"] }
-rand = "0.7.3"
-anyhow = "1.0.35"
-serde = {version = "1.0.118", features = ["derive"] }
-native-dialog = "0.4.3"
+tokio = { version = "1.12.0", features = ["fs", "rt-multi-thread", "macros"] }
+rand = "0.8.4"
+anyhow = "1.0.44"
+serde = { version = "1.0.130", features = ["derive"] }
+native-dialog = "0.5.5"
 platform-dirs = "0.3.0"
-serde_json = "1.0.60"
-num = "0.3.1"
-itertools = "0.9.0"
-bytes = "0.5.6"
-indexmap = "1.6.1"
+serde_json = "1.0.68"
+num = "0.4.0"
+itertools = "0.10.1"
+bytes = "1.1.0"
+indexmap = "1.7.0"
+reqwest = {version = "0.11.4", features = ["json"]}
+winapi = {version = "0.3.9", features = ["wincon", "winuser"]}
+font-awesome-as-a-crate = "0.1.2"
