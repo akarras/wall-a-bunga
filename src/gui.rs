@@ -5,7 +5,11 @@ use crate::style::{button_style, inactive_style};
 use crate::submenus::ratio_menu::RatioMenu;
 use crate::submenus::resolution_menu::ResolutionOptionsMenu;
 use anyhow::Result;
-use iced::{button, executor, image, pick_list, scrollable, text_input, Align, Application, Button, Checkbox, Column, Command, Container, Element, Image, Length, PickList, ProgressBar, Row, Scrollable, Space, Text, TextInput, Clipboard};
+use iced::{
+    button, executor, image, pick_list, scrollable, text_input, Align, Application, Button,
+    Checkbox, Clipboard, Column, Command, Container, Element, Image, Length, PickList, ProgressBar,
+    Row, Scrollable, Space, Text, TextInput,
+};
 use iced_native::Subscription;
 use log::{debug, error, info};
 use native_dialog::FileDialog;
@@ -39,24 +43,28 @@ pub(crate) struct WallpaperUi {
     resolution_menu: ResolutionOptionsMenu,
     aspect_menu: RatioMenu,
     download_manager: DownloadManager,
-    concurrent_download_control: IncrementControl
+    concurrent_download_control: IncrementControl,
 }
 
 #[derive(Debug, Default)]
 struct IncrementControl {
     increment_button: button::State,
     decrement_button: button::State,
-    value: i32
+    value: i32,
 }
 
 impl IncrementControl {
     fn view(&mut self) -> Row<WallpaperMessage> {
         Row::new()
-            .push(Button::new(&mut self.decrement_button, Text::new("-"))
-                .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value - 1)))
+            .push(
+                Button::new(&mut self.decrement_button, Text::new("-"))
+                    .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value - 1)),
+            )
             .push(Text::new(format!("{}", self.value)))
-            .push(Button::new(&mut self.increment_button, Text::new("+"))
-                .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value + 1)))
+            .push(
+                Button::new(&mut self.increment_button, Text::new("+"))
+                    .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value + 1)),
+            )
     }
 }
 
@@ -281,7 +289,11 @@ impl Application for WallpaperUi {
         "wall-a-bunga".to_string()
     }
 
-    fn update(&mut self, message: WallpaperMessage, _clipboard: &mut Clipboard) -> Command<WallpaperMessage> {
+    fn update(
+        &mut self,
+        message: WallpaperMessage,
+        _clipboard: &mut Clipboard,
+    ) -> Command<WallpaperMessage> {
         match message {
             WallpaperMessage::Search() => {
                 self.search_options.set_query(self.search_value.clone());
@@ -529,20 +541,21 @@ impl Application for WallpaperUi {
             },
             WallpaperMessage::ResolutionIsSingleTargetChanged(res_mode) => {
                 self.resolution_menu.is_minimum_set = res_mode;
-            },
+            }
             WallpaperMessage::SetMinimumResolution(resolution) => {
                 // clear out other resolutions options in preference of min resolution
                 info!("Minimum resolution set to {}", resolution);
                 self.search_options.resolutions = None;
                 self.search_options.minimum_resolution = Some(resolution);
-            },
+            }
             WallpaperMessage::ChangeConcurrentDownloads(c) => {
                 let value = match c > 0 && c < 10 {
                     true => c,
-                    false => self.concurrent_download_control.value
+                    false => self.concurrent_download_control.value,
                 };
                 self.concurrent_download_control.value = value;
-                self.download_manager.set_concurrent_downloads(value as usize)
+                self.download_manager
+                    .set_concurrent_downloads(value as usize)
             }
         }
         Command::none()
@@ -747,9 +760,11 @@ impl Application for WallpaperUi {
         let submenu = match self.controls.submenu {
             Submenu::Settings => Column::new()
                 .align_items(Align::Center)
-                .push(Column::new()
-                    .push(Text::new("Concurrent Downloads"))
-                    .push(self.concurrent_download_control.view()))
+                .push(
+                    Column::new()
+                        .push(Text::new("Concurrent Downloads"))
+                        .push(self.concurrent_download_control.view()),
+                )
                 .push(
                     Column::new()
                         .width(Length::FillPortion(4))
@@ -779,7 +794,7 @@ impl Application for WallpaperUi {
                                 &mut self.controls.choose_directory_button,
                                 "Choose Directory",
                             )
-                                .on_press(WallpaperMessage::ChooseDirectory()),
+                            .on_press(WallpaperMessage::ChooseDirectory()),
                         ),
                 )
                 .push(Checkbox::new(
@@ -796,9 +811,10 @@ impl Application for WallpaperUi {
                 &self.search_options.resolutions,
                 &self.search_options.minimum_resolution,
             )),
-            Submenu::AspectRatio => Column::new().push(self
-                .aspect_menu
-                .build_ratio_row(&self.search_options.ratios)), // todo implement
+            Submenu::AspectRatio => Column::new().push(
+                self.aspect_menu
+                    .build_ratio_row(&self.search_options.ratios),
+            ), // todo implement
             Submenu::None => Column::new(),
         };
 

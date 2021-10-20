@@ -1,14 +1,14 @@
 use crate::gui::WallpaperMessage;
+use font_awesome_as_a_crate::Type;
 use iced::futures::stream::BoxStream;
-use iced::{Text, Length, Row};
+use iced::svg::Handle;
+use iced::{Length, Row, Text};
 use indexmap::IndexMap;
 use log::{debug, error, info};
+use reqwest::Response;
 use std::path::PathBuf;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use reqwest::Response;
-use font_awesome_as_a_crate::Type;
-use iced::svg::Handle;
 
 #[derive(Debug, Clone)]
 pub(crate) struct DownloadManager {
@@ -22,7 +22,7 @@ impl Default for DownloadManager {
         Self {
             downloads: Default::default(),
             concurrent_downloads: 5,
-            finished_downloads: 0
+            finished_downloads: 0,
         }
     }
 }
@@ -56,15 +56,19 @@ impl DownloadManager {
     pub fn view(&self) -> Row<WallpaperMessage> {
         let download_svg = font_awesome_as_a_crate::svg(Type::Solid, "download").unwrap();
         let complete_svg = font_awesome_as_a_crate::svg(Type::Solid, "check").unwrap();
-        let download_icon = iced::svg::Svg::new(Handle::from_memory(download_svg.as_bytes().to_vec()));
-        let complete_icon = iced::svg::Svg::new(Handle::from_memory(complete_svg.as_bytes().to_vec()));
+        let download_icon =
+            iced::svg::Svg::new(Handle::from_memory(download_svg.as_bytes().to_vec()));
+        let complete_icon =
+            iced::svg::Svg::new(Handle::from_memory(complete_svg.as_bytes().to_vec()));
         if self.downloads.len() > 0 || self.finished_downloads > 0 {
-            Row::new().push(download_icon.height(Length::Units(15)))
+            Row::new()
+                .push(download_icon.height(Length::Units(15)))
                 .push(Text::new(format!("{}", self.downloads.len())))
                 .push(complete_icon.height(Length::Units(15)))
                 .push(Text::new(format!("{}", self.finished_downloads)))
         } else {
-            Row::new().push(download_icon.height(Length::Units(15)))
+            Row::new()
+                .push(download_icon.height(Length::Units(15)))
                 .push(Text::new("0"))
         }
     }
