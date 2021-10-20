@@ -1,6 +1,6 @@
 [package]
 name = "wall-a-bunga"
-version = "0.1.1"
+version = "0.2.0"
 authors = ["Chew <chew@akarras.com>"]
 edition = "2018"
 resolver = "2"
