@@ -5,7 +5,7 @@ Wall-a-bunga is a wallpaper downloader for [wallhaven.cc](http://wallhaven.cc) w
 ![Release](https://github.com/akarras/wall-a-bunga/workflows/Release/badge.svg)
 
 ### Why?
-I wanted to be able to download a bunch of images from Wallhaven at with one click. I found a C++ program, but it was 
+I wanted to be able to download a bunch of images from Wallhaven at once with one click. I found a C++ program, but it was 
 clunky and didn't make me happy. So, I had the classic thought, aha, rewrite this in Rust. So here we are...
 
 ![](demo.gif)
