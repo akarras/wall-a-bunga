@@ -64,10 +64,10 @@ impl ResolutionOptionsMenu {
                     |column, (res, btn_state)| {
                         column.push(match is_minimum_resolution {
                             false => make_button(btn_state, &res.to_string())
-                                .style(inactive_style(check_resolution_active_multi(&res)))
+                                .style(inactive_style(check_resolution_active_multi(res)))
                                 .on_press(WallpaperMessage::ResolutionSelected(res.clone())),
                             true => make_button(btn_state, &res.to_string())
-                                .style(inactive_style(check_minimum_resolution_active(&res)))
+                                .style(inactive_style(check_minimum_resolution_active(res)))
                                 .on_press(WallpaperMessage::SetMinimumResolution(res.clone())),
                         })
                     },

@@ -36,7 +36,7 @@ impl RatioMenu {
             .fold(Row::new(), |row, (ratio, state)| {
                 row.push(
                     make_button(state, &ratio.to_string())
-                        .style(inactive_style(get_is_toggled(ratio, &selected_ratios)))
+                        .style(inactive_style(get_is_toggled(ratio, selected_ratios)))
                         .on_press(WallpaperMessage::AspectRatioSelected(ratio.clone())),
                 )
             })

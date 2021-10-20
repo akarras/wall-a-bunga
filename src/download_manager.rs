@@ -60,7 +60,7 @@ impl DownloadManager {
             iced::svg::Svg::new(Handle::from_memory(download_svg.as_bytes().to_vec()));
         let complete_icon =
             iced::svg::Svg::new(Handle::from_memory(complete_svg.as_bytes().to_vec()));
-        if self.downloads.len() > 0 || self.finished_downloads > 0 {
+        if self.downloads.is_empty() || self.finished_downloads > 0 {
             Row::new()
                 .push(download_icon.height(Length::Units(15)))
                 .push(Text::new(format!("{}", self.downloads.len())))
