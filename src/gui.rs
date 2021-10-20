@@ -7,8 +7,8 @@ use crate::submenus::resolution_menu::ResolutionOptionsMenu;
 use anyhow::Result;
 use iced::{
     alignment, button, executor, image, pick_list, scrollable, text_input, Alignment, Application,
-    Button, Checkbox, Column, Command, Container, Element, Image, Length, PickList, ProgressBar,
-    Row, Scrollable, Space, Text, TextInput,
+    Button, Checkbox, Color, Column, Command, Container, Element, Image, Length, PickList,
+    ProgressBar, Row, Scrollable, Space, Text, TextInput,
 };
 use iced_native::Subscription;
 use log::{debug, error, info};
@@ -263,7 +263,7 @@ impl WallpaperUi {
             None => true,
         };
         let loading_text = if is_loading { "Loading..." } else { "" };
-        Text::new(loading_text).height(Length::Units(72))
+        Text::new(loading_text).size(42).color(Color::WHITE)
     }
 }
 
@@ -642,7 +642,9 @@ impl Application for WallpaperUi {
                     .fold(Row::new().spacing(5), |row, item| row.push(item))
             })
             .fold(
-                Column::new().spacing(5).push(Text::new("Search results")),
+                Column::new()
+                    .spacing(5)
+                    .push(Text::new("Search results").color(Color::WHITE)),
                 |column, row| column.push(row),
             )
             .push(loading_status)
@@ -759,10 +761,14 @@ impl Application for WallpaperUi {
             .as_ref()
             .map_or((0, 0), |f| (f.current_page, f.last_page));
 
-        let selection_info = Column::new().push(Text::new(format!(
-            "selected: {}  page: {}/{}",
-            selected_count, current_page, last_page
-        )));
+        let selection_info = Column::new().push(
+            Text::new(format!(
+                "selected: {}  page: {}/{}",
+                selected_count, current_page, last_page
+            ))
+            .color(Color::WHITE)
+            .size(26),
+        );
 
         let status_row = Row::new()
             .align_items(Alignment::Center)
@@ -848,12 +854,15 @@ impl Application for WallpaperUi {
                     .push(images)
                     .height(Length::Fill),
             );
-        //.push(page_button_row);
 
         Container::new(column)
             .padding(15)
             .align_y(alignment::Vertical::Top)
             .center_x()
             .into()
+    }
+
+    fn background_color(&self) -> Color {
+        Color::from_rgb(0.1, 0.1, 0.11)
     }
 }

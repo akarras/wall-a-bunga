@@ -58,9 +58,9 @@ pub mod button_style {
         fn active(&self) -> button::Style {
             button::Style {
                 background: Some(Background::Color(match self {
-                    Button::Primary => Color::from_rgb(0.11, 0.42, 0.87),
+                    Button::Primary => Color::from_rgb(0.87, 0.42, 0.11),
                     Button::Downloaded => Color::from_rgb(0.467, 0.867, 0.467),
-                    Button::Inactive => Color::from_rgb(0.1, 0.1, 0.1),
+                    Button::Inactive => Color::from_rgb(0.3, 0.3, 0.3),
                     Button::Downloading => Color::from_rgb(0.992, 0.992, 0.588),
                     Button::Failed => Color::from_rgb(1.0, 0.0, 0.0),
                 })),

@@ -9,10 +9,11 @@ pub struct FAIcon {
 impl FAIcon {
     /// Creates a new font awesome icon, panics if the icon can not be found
     pub fn new(fa_type: Type, icon_name: &str) -> Self {
-        let svg = font_awesome_as_a_crate::svg(fa_type, icon_name)
+        let svg_str = font_awesome_as_a_crate::svg(fa_type, icon_name)
             .unwrap()
-            .as_bytes()
-            .to_vec();
+            // this replace hack helps turn all the icons white.
+            .replace("<path", "<path fill=\"white\"");
+        let svg = svg_str.as_bytes().to_vec();
         let handle = iced::svg::Handle::from_memory(svg);
         Self {
             icon_handle: handle,

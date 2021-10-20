@@ -1,8 +1,9 @@
+use crate::font_awesome::FAIcon;
 use crate::gui::WallpaperMessage;
 use font_awesome_as_a_crate::Type;
 use iced::futures::stream::BoxStream;
 use iced::svg::Handle;
-use iced::{Length, Row, Text};
+use iced::{Color, Length, Row, Text};
 use indexmap::IndexMap;
 use log::{debug, error, info};
 use reqwest::Response;
@@ -54,18 +55,22 @@ impl DownloadManager {
     }
 
     pub fn view(&self) -> Row<WallpaperMessage> {
-        let download_svg = font_awesome_as_a_crate::svg(Type::Solid, "download").unwrap();
-        let complete_svg = font_awesome_as_a_crate::svg(Type::Solid, "check").unwrap();
-        let download_icon =
-            iced::svg::Svg::new(Handle::from_memory(download_svg.as_bytes().to_vec()));
-        let complete_icon =
-            iced::svg::Svg::new(Handle::from_memory(complete_svg.as_bytes().to_vec()));
+        let download_icon = FAIcon::new(Type::Solid, "download").svg();
+        let complete_icon = FAIcon::new(Type::Solid, "check").svg();
         if self.downloads.is_empty() || self.finished_downloads > 0 {
             Row::new()
-                .push(download_icon.height(Length::Units(15)))
-                .push(Text::new(format!("{}", self.downloads.len())))
-                .push(complete_icon.height(Length::Units(15)))
-                .push(Text::new(format!("{}", self.finished_downloads)))
+                .push(download_icon.height(Length::Units(26)))
+                .push(
+                    Text::new(format!("{}", self.downloads.len()))
+                        .color(Color::WHITE)
+                        .size(26),
+                )
+                .push(complete_icon.height(Length::Units(26)))
+                .push(
+                    Text::new(format!("{}", self.finished_downloads))
+                        .color(Color::WHITE)
+                        .size(26),
+                )
         } else {
             Row::new()
                 .push(download_icon.height(Length::Units(15)))
