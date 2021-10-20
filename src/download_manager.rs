@@ -2,7 +2,6 @@ use crate::font_awesome::FAIcon;
 use crate::gui::WallpaperMessage;
 use font_awesome_as_a_crate::Type;
 use iced::futures::stream::BoxStream;
-use iced::svg::Handle;
 use iced::{Color, Length, Row, Text};
 use indexmap::IndexMap;
 use log::{debug, error, info};

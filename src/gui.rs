@@ -57,13 +57,19 @@ impl IncrementControl {
     fn view(&mut self) -> Row<WallpaperMessage> {
         Row::new()
             .push(
-                Button::new(&mut self.decrement_button, Text::new("-"))
-                    .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value - 1)),
+                make_button(&mut self.decrement_button, "-")
+                    .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value - 1))
+                    .padding([5, 5]),
             )
-            .push(Text::new(format!("{}", self.value)))
             .push(
-                Button::new(&mut self.increment_button, Text::new("+"))
-                    .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value + 1)),
+                Text::new(format!("{}", self.value))
+                    .color(Color::WHITE)
+                    .size(26),
+            )
+            .push(
+                make_button(&mut self.increment_button, "+")
+                    .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value + 1))
+                    .padding([5, 5]),
             )
     }
 }
@@ -773,59 +779,75 @@ impl Application for WallpaperUi {
         let status_row = Row::new()
             .align_items(Alignment::Center)
             .push(Space::new(Length::Fill, Length::Units(10)))
-            .push(selection_info)
             .push(self.download_manager.view())
             .spacing(5);
 
         let submenu = match self.controls.submenu {
             Submenu::Settings => Column::new()
-                .align_items(Alignment::Center)
+                .align_items(Alignment::Start)
+                .push(Text::new("Settings").size(26).color(Color::WHITE))
                 .push(
                     Column::new()
-                        .push(Text::new("Concurrent Downloads"))
+                        .padding([10, 5])
+                        .push(Text::new("Concurrent Downloads").color(Color::WHITE))
                         .push(self.concurrent_download_control.view()),
                 )
                 .push(
                     Column::new()
-                        .width(Length::FillPortion(4))
-                        .push(Text::new("wallhaven.cc api token (required for nsfw):"))
-                        .push(TextInput::new(
-                            &mut self.api_text_input,
-                            "api key",
-                            &*self.api_key,
-                            WallpaperMessage::ApiTokenSet,
-                        )),
+                        .padding([10, 5])
+                        .width(Length::Fill)
+                        .push(
+                            Text::new("wallhaven.cc api token (required for nsfw):")
+                                .color(Color::WHITE),
+                        )
+                        .push(
+                            TextInput::new(
+                                &mut self.api_text_input,
+                                "api key",
+                                &*self.api_key,
+                                WallpaperMessage::ApiTokenSet,
+                            )
+                            .max_width(600),
+                        ),
                 )
                 .push(
                     Row::new()
                         .width(Length::FillPortion(4))
                         .push(
                             Column::new()
-                                .push(Text::new("save directory:"))
-                                .push(Text::new(
-                                    self.settings
-                                        .save_directory
-                                        .as_ref()
-                                        .unwrap_or(&"./".to_string()),
-                                )),
+                                .padding([10, 5])
+                                .push(Text::new("save directory:").color(Color::WHITE))
+                                .push(
+                                    Text::new(
+                                        self.settings
+                                            .save_directory
+                                            .as_ref()
+                                            .unwrap_or(&"./".to_string()),
+                                    )
+                                    .color(Color::WHITE),
+                                ),
                         )
                         .push(
                             make_button(
                                 &mut self.controls.choose_directory_button,
                                 "Choose Directory",
                             )
-                            .on_press(WallpaperMessage::ChooseDirectory()),
+                            .on_press(WallpaperMessage::ChooseDirectory())
+                            .padding([10, 5]),
                         ),
                 )
-                .push(Checkbox::new(
-                    self.settings.ignore_downloaded,
-                    "Ignore downloaded",
-                    WallpaperMessage::SetIgnoreDownloaded,
-                ))
+                .push(
+                    Checkbox::new(
+                        self.settings.ignore_downloaded,
+                        "Ignore downloaded",
+                        WallpaperMessage::SetIgnoreDownloaded,
+                    )
+                    .text_color(Color::WHITE),
+                )
                 .push(
                     make_button(&mut self.controls.save_settings_button, "save settings")
                         .on_press(WallpaperMessage::SaveSettings())
-                        .width(Length::FillPortion(2)),
+                        .width(Length::Shrink),
                 ),
             Submenu::Resolution => Column::new().push(self.resolution_menu.build_resolution_row(
                 &self.search_options.resolutions,
@@ -853,7 +875,8 @@ impl Application for WallpaperUi {
                     .on_scroll(WallpaperMessage::Scroll)
                     .push(images)
                     .height(Length::Fill),
-            );
+            )
+            .push(selection_info);
 
         Container::new(column)
             .padding(15)

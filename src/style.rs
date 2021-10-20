@@ -8,7 +8,7 @@ pub(crate) fn make_button<'a>(
     state: &'a mut button::State,
     text: &str,
 ) -> Button<'a, WallpaperMessage> {
-    Button::new(state, Text::new(text).size(18))
+    Button::new(state, Text::new(text).size(21))
         .padding(10)
         .style(button_style::Button::Primary)
         .height(Length::Shrink)
