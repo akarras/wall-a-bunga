@@ -11,6 +11,7 @@ use reqwest::Response;
 #[derive(Debug, Clone)]
 pub(crate) struct DownloadManager {
     downloads: IndexMap<String, ImageDownload>,
+    finished_downloads: usize,
     concurrent_downloads: usize,
 }
 
@@ -19,6 +20,7 @@ impl Default for DownloadManager {
         Self {
             downloads: Default::default(),
             concurrent_downloads: 5,
+            finished_downloads: 0
         }
     }
 }
@@ -38,6 +40,7 @@ impl DownloadManager {
 
     pub fn remove_download(&mut self, id: &str) {
         self.downloads.remove(id);
+        self.finished_downloads += 1;
     }
 
     pub fn get_subscriptions(&self) -> Vec<iced::Subscription<DownloadStatus>> {
@@ -49,7 +52,11 @@ impl DownloadManager {
     }
 
     pub fn view(&self) -> Column<WallpaperMessage> {
-        Column::new().push(Text::new(format!("Downloads: {}", self.downloads.len())))
+        if self.downloads.len() > 0 || self.finished_downloads > 0 {
+            Column::new().push(Text::new(format!("active downloads: {} finished downloads: {}", self.downloads.len(), self.finished_downloads)))
+        } else {
+            Column::new()
+        }
     }
 
     pub fn set_concurrent_downloads(&mut self, concurrent_downloads: usize) {
