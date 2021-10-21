@@ -26,9 +26,9 @@ pub(crate) fn make_button_fa<'a>(
             .push(
                 FAIcon::new(Type::Solid, fa_icon)
                     .svg()
-                    .height(Length::Units(16)),
+                    .height(Length::Units(21)),
             )
-            .push(Text::new(text).size(18)),
+            .push(Text::new(text).size(21)),
     )
     .padding(10)
     .style(button_style::Button::Primary)
