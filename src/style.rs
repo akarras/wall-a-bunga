@@ -43,6 +43,53 @@ pub(crate) fn inactive_style(btn: bool) -> button_style::Button {
     }
 }
 
+pub mod pick_style {
+    use iced::{pick_list, Color, Background};
+
+    pub struct PickList;
+
+    impl pick_list::StyleSheet for PickList {
+        fn menu(&self) -> pick_list::Menu {
+            pick_list::Menu {
+                text_color: Color::WHITE,
+                background: Background::Color(Color::from_rgb(0.3, 0.3, 0.3)),
+                border_width: 1.0,
+                border_color: Color::from_rgb(0.3, 0.3, 0.3),
+                selected_background: Color::from_rgb(0.3, 0.3, 0.3)
+                    .into(),
+                selected_text_color: Color::WHITE,
+            }
+        }
+
+        fn active(&self) -> pick_list::Style {
+            pick_list::Style {
+                text_color: Color::WHITE,
+                placeholder_color: Color::WHITE,
+                background: Color::from_rgb(0.3, 0.3, 0.3).into(),
+                border_width: 1.0,
+                border_color: Color {
+                    a: 0.6,
+                    ..Color::BLACK
+                },
+                border_radius: 10.0,
+                icon_size: 0.5,
+            }
+        }
+
+        fn hovered(&self) -> pick_list::Style {
+            let active = self.active();
+
+            pick_list::Style {
+                border_color: Color {
+                    a: 0.9,
+                    ..Color::BLACK
+                },
+                ..active
+            }
+        }
+    }
+}
+
 pub mod button_style {
     use iced::{button, Background, Color, Vector};
 
