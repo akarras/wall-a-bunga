@@ -29,6 +29,8 @@ jobs:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
+      - name: Install dependencies
+        run: sudo apt-get install libxkbcommon-dev
       - name: Checkout sources
         uses: actions/checkout@v2
 

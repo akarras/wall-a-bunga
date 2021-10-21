@@ -15,12 +15,18 @@ jobs:
             include:
               - os: windows-latest
                 bin: wall-a-bunga.exe
+                deps: echo none
               - os: ubuntu-latest
                 bin: wall-a-bunga
+                deps: sudo apt-get install libxkbcommon-dev
               - os: macos-latest
                 bin: wall-a-bunga
+                deps: echo none
     runs-on: ${{ matrix.os }}
     steps:
+      - name: install system dependencies
+        run: ${{ matrix.deps }}
+
       - name: Checkout sources
         uses: actions/checkout@v2
 
