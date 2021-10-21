@@ -1,7 +1,7 @@
 use crate::gui::WallpaperMessage;
 use crate::style::{inactive_style, make_button};
 use crate::submenus::calculate_aspect_ratio;
-use iced::{button, Checkbox, Column, Row, Text};
+use iced::{button, Checkbox, Color, Column, Row, Text};
 use itertools::Itertools;
 use std::collections::HashSet;
 use wallapi::types::XYCombo;
@@ -60,7 +60,7 @@ impl ResolutionOptionsMenu {
             .into_iter()
             .fold(Row::new(), |row, ((x, y), resolutions)| {
                 row.push(resolutions.fold(
-                    Column::new().push(Text::new(format!("{}:{}", x, y))),
+                    Column::new().push(Text::new(format!("{}:{}", x, y)).color(Color::WHITE)),
                     |column, (res, btn_state)| {
                         column.push(match is_minimum_resolution {
                             false => make_button(btn_state, &res.to_string())
@@ -73,10 +73,13 @@ impl ResolutionOptionsMenu {
                     },
                 ))
             })
-            .push(Checkbox::new(
-                self.is_minimum_set,
-                "Minimum resolution",
-                WallpaperMessage::ResolutionIsSingleTargetChanged,
-            ))
+            .push(
+                Checkbox::new(
+                    self.is_minimum_set,
+                    "Minimum resolution",
+                    WallpaperMessage::ResolutionIsSingleTargetChanged,
+                )
+                .text_color(Color::WHITE),
+            )
     }
 }
