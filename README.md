@@ -18,7 +18,7 @@ clunky and didn't make me happy. So, I had the classic thought, aha, rewrite thi
 
 ### Installation
 * On Windows ensure you have [Visual C++ runtime](https://aka.ms/vs/16/release/vc_redist.x64.exe) installed
-* Download the executable [here](https://github.com/akarras/wall-a-bunga/releases/latest)
+* Download the executable [here](https://github.com/akarras/wall-a-bunga/releases/latest) and run it
 * `cargo install --git https://github.com/akarras/wall-a-bunga`
 * alternatively, `git clone https://github.com/akarras/wall-a-bunga`, and `git build --release` inside the root directory
 
