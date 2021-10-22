@@ -730,7 +730,7 @@ impl Application for WallpaperUi {
                     self.search_options.sorting,
                     WallpaperMessage::SortingTypeChanged,
                 )
-                    .style(crate::style::pick_style::PickList)
+                .style(crate::style::pick_style::PickList)
                 .text_size(26)
                 .width(Length::Shrink)
                 .padding(5),

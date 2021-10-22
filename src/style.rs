@@ -44,7 +44,7 @@ pub(crate) fn inactive_style(btn: bool) -> button_style::Button {
 }
 
 pub mod pick_style {
-    use iced::{pick_list, Color, Background};
+    use iced::{pick_list, Background, Color};
 
     pub struct PickList;
 
@@ -55,8 +55,7 @@ pub mod pick_style {
                 background: Background::Color(Color::from_rgb(0.3, 0.3, 0.3)),
                 border_width: 1.0,
                 border_color: Color::from_rgb(0.3, 0.3, 0.3),
-                selected_background: Color::from_rgb(0.3, 0.3, 0.3)
-                    .into(),
+                selected_background: Color::from_rgb(0.3, 0.3, 0.3).into(),
                 selected_text_color: Color::WHITE,
             }
         }
