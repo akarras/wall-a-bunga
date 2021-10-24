@@ -648,9 +648,16 @@ impl Application for WallpaperUi {
         };
 
         // create a next button based on whether or we have another page
-        let next_button = if self.search_meta.as_ref().map(|m| (self.search_options.page.unwrap_or(1) as i64).ne(&m.last_page)).unwrap_or(true) {
-            Column::new().push(make_button_fa(&mut self.next_page_button, "next page", "arrow-right")
-                .on_press(WallpaperMessage::NextPage()))
+        let next_button = if self
+            .search_meta
+            .as_ref()
+            .map(|m| (self.search_options.page.unwrap_or(1) as i64).ne(&m.last_page))
+            .unwrap_or(true)
+        {
+            Column::new().push(
+                make_button_fa(&mut self.next_page_button, "next page", "arrow-right")
+                    .on_press(WallpaperMessage::NextPage()),
+            )
         } else {
             Column::new()
         };
@@ -708,8 +715,7 @@ impl Application for WallpaperUi {
                 |column, row| column.push(row),
             )
             .push(loading_status)
-            .push(next_button
-            )
+            .push(next_button)
             .align_items(Alignment::Center);
 
         let text_input = Row::new()
