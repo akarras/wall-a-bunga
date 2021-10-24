@@ -44,6 +44,7 @@ pub(crate) struct WallpaperUi {
     aspect_menu: RatioMenu,
     download_manager: DownloadManager,
     concurrent_download_control: IncrementControl,
+    next_page_button: button::State,
 }
 
 #[derive(Debug, Default)]
@@ -144,6 +145,7 @@ pub(crate) enum WallpaperMessage {
     SetMinimumResolution(XYCombo),
     ChangeConcurrentDownloads(i32),
     Scroll(f32),
+    NextPage(),
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
@@ -263,11 +265,15 @@ impl WallpaperUi {
 
     /// guesstimate our loading status based on our page
     fn get_loading_status(&mut self) -> Text {
-        let page = self.search_options.page.unwrap_or_default() as i64;
+        let page = self.search_options.page.unwrap_or(1) as i64;
         let is_loading = match &self.search_meta {
             Some(meta) => meta.current_page != page,
-            None => true,
+            None => true, // if this is none, we haven't received anything yet
         };
+        debug!(
+            "calculated loading status {:?} page {:?}",
+            self.search_meta, self.search_options.page
+        );
         let loading_text = if is_loading { "Loading..." } else { "" };
         Text::new(loading_text).size(42).color(Color::WHITE)
     }
@@ -556,6 +562,7 @@ impl Application for WallpaperUi {
                     .set_concurrent_downloads(value as usize)
             }
             WallpaperMessage::Scroll(scroll) => {
+                debug!("scroll {}", scroll);
                 // scroll ranges from 0 to 1. if 1, try to load more wallpapers
                 let search_meta = if let Some(search_meta) = &self.search_meta {
                     search_meta
@@ -568,6 +575,27 @@ impl Application for WallpaperUi {
                     && page == search_meta.current_page as i32
                 {
                     self.search_options.page = Some(page + 1);
+                    return Command::perform(
+                        WallpaperUi::search_command(
+                            self.search_options.clone(),
+                            self.settings
+                                .save_directory
+                                .as_ref()
+                                .unwrap_or(&"./".to_string())
+                                .into(),
+                        ),
+                        WallpaperMessage::SearchReceived,
+                    );
+                }
+            }
+            WallpaperMessage::NextPage() => {
+                let mut page = self.search_options.page.unwrap_or(1);
+                if let Some(max_page) = self.search_meta.as_ref().map(|m| m.last_page) {
+                    page += 1;
+                    if page > max_page as i32 {
+                        page = max_page as i32;
+                    }
+                    self.search_options.set_page(page);
                     return Command::perform(
                         WallpaperUi::search_command(
                             self.search_options.clone(),
@@ -600,6 +628,32 @@ impl Application for WallpaperUi {
 
         // Build columns of 5 with our images
         let ignore_downloaded = self.settings.ignore_downloaded;
+
+        let results = match self.settings.ignore_downloaded {
+            true => {
+                let num_hidden = self
+                    .search_results
+                    .iter()
+                    .filter(|(_, v)| v.state.eq(&ImageState::Downloaded))
+                    .count();
+                format!(
+                    "{} results ({} hidden)",
+                    self.search_results.len(),
+                    num_hidden
+                )
+            }
+            false => {
+                format!("{} results", self.search_results.len())
+            }
+        };
+
+        // create a next button based on whether or we have another page
+        let next_button = if self.search_meta.as_ref().map(|m| (self.search_options.page.unwrap_or(1) as i64).ne(&m.last_page)).unwrap_or(true) {
+            Column::new().push(make_button_fa(&mut self.next_page_button, "next page", "arrow-right")
+                .on_press(WallpaperMessage::NextPage()))
+        } else {
+            Column::new()
+        };
 
         let images = self
             .search_results
@@ -654,6 +708,8 @@ impl Application for WallpaperUi {
                 |column, row| column.push(row),
             )
             .push(loading_status)
+            .push(next_button
+            )
             .align_items(Alignment::Center);
 
         let text_input = Row::new()
@@ -770,8 +826,8 @@ impl Application for WallpaperUi {
 
         let selection_info = Column::new().push(
             Text::new(format!(
-                "selected: {}  page: {}/{}",
-                selected_count, current_page, last_page
+                "selected: {}  page: {}/{} {}",
+                selected_count, current_page, last_page, results
             ))
             .color(Color::WHITE)
             .size(26),
@@ -875,7 +931,9 @@ impl Application for WallpaperUi {
                 Scrollable::new(&mut self.scroll_state)
                     .on_scroll(WallpaperMessage::Scroll)
                     .push(images)
-                    .height(Length::Fill),
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+                    .align_items(Alignment::Center),
             )
             .push(selection_info);
 

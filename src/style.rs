@@ -22,13 +22,11 @@ pub(crate) fn make_button_fa<'a>(
 ) -> Button<'a, WallpaperMessage> {
     Button::new(
         state,
-        Row::new()
-            .push(
-                FAIcon::new(Type::Solid, fa_icon)
-                    .svg()
-                    .height(Length::Units(21)),
-            )
-            .push(Text::new(text).size(21)),
+        Row::new().push(Text::new(text).size(21)).push(
+            FAIcon::new(Type::Solid, fa_icon)
+                .svg()
+                .height(Length::Units(21)),
+        ),
     )
     .padding(10)
     .style(button_style::Button::Primary)
