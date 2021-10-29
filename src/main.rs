@@ -4,6 +4,7 @@ mod gui;
 mod settings;
 mod style;
 mod submenus;
+mod utils;
 
 use crate::settings::SavedSettings;
 use gui::WallpaperUi;

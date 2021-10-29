@@ -1,7 +1,7 @@
 use crate::font_awesome::FAIcon;
 use crate::gui::WallpaperMessage;
 use font_awesome_as_a_crate::Type;
-use iced::{button, Row};
+use iced::{button, Row, Space};
 use iced::{Button, Length, Text};
 
 pub(crate) fn make_button<'a>(
@@ -22,11 +22,14 @@ pub(crate) fn make_button_fa<'a>(
 ) -> Button<'a, WallpaperMessage> {
     Button::new(
         state,
-        Row::new().push(Text::new(text).size(21)).push(
-            FAIcon::new(Type::Solid, fa_icon)
-                .svg()
-                .height(Length::Units(21)),
-        ),
+        Row::new()
+            .push(Text::new(text).size(21))
+            .push(Space::new(Length::Units(5), Length::Shrink))
+            .push(
+                FAIcon::new(Type::Solid, fa_icon)
+                    .svg()
+                    .height(Length::Units(21)),
+            ),
     )
     .padding(10)
     .style(button_style::Button::Primary)

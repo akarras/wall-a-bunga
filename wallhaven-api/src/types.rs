@@ -345,7 +345,7 @@ pub struct ListingData {
     pub favorites: i64,
     pub source: String,
     pub purity: String,
-    pub category: String,
+    pub category: Category,
     pub dimension_x: i64,
     pub dimension_y: i64,
     pub resolution: String,
@@ -356,6 +356,20 @@ pub struct ListingData {
     pub colors: Vec<String>,
     pub path: String,
     pub thumbs: Thumbs,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Category {
+    Anime,
+    People,
+    General
+}
+
+impl Default for Category {
+    fn default() -> Self {
+        Self::General
+    }
 }
 
 /// Contains URLs to various sized thumbnails
