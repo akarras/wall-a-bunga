@@ -733,7 +733,7 @@ impl Application for WallpaperUi {
                 .on_submit(WallpaperMessage::Search()),
             )
             .push(
-                make_button(&mut self.search_button, "search")
+                make_button_fa(&mut self.search_button, "search", "search")
                     .width(Length::Shrink)
                     .height(Length::Shrink)
                     .on_press(WallpaperMessage::Search()),
