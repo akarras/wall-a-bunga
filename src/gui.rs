@@ -14,6 +14,7 @@ use iced::{
     ProgressBar, Row, Scrollable, Space, Text, TextInput,
 };
 use iced_native::Subscription;
+use image_rs::GenericImageView;
 use log::{debug, error, info, warn};
 use native_dialog::FileDialog;
 use rand::{thread_rng, RngCore};
@@ -27,7 +28,6 @@ use wallapi::types::{
     Sorting, XYCombo,
 };
 use wallapi::{WallhavenApiClientError, WallhavenClient};
-use image_rs::GenericImageView;
 
 #[derive(Debug, Default)]
 pub(crate) struct WallpaperUi {
@@ -247,13 +247,16 @@ impl WallpaperUi {
         Ok((data, result))
     }
 
-    async fn fetch_full_image(
-        url: String,
-    ) -> Result<image::Handle, anyhow::Error> {
+    async fn fetch_full_image(url: String) -> Result<image::Handle, anyhow::Error> {
         let bytes = reqwest::get(url).await?.bytes().await?;
         Ok(spawn_blocking(move || {
             if let Ok(image) = image_rs::load_from_memory(&bytes) {
-                let pixels: Vec<_> = image.to_bgra8().pixels().into_iter().flat_map(|m| m.0).collect();
+                let pixels: Vec<_> = image
+                    .to_bgra8()
+                    .pixels()
+                    .into_iter()
+                    .flat_map(|m| m.0)
+                    .collect();
                 image::Handle::from_pixels(image.width(), image.height(), pixels)
             } else {
                 warn!("Failed to convert image ourselves, letting Iced try.");
@@ -712,7 +715,6 @@ impl Application for WallpaperUi {
                     return Command::perform(
                         async move {
                             cancel_mechanism.send(()).await.unwrap();
-                            ()
                         },
                         |_| {
                             info!("cancel sent!");
@@ -774,11 +776,7 @@ impl Application for WallpaperUi {
         } else {
             Column::new()
         };
-        let is_preview_disabled = if let PreviewMode::Disable = &self.preview_mode {
-            true
-        } else {
-            false
-        };
+        let is_preview_disabled = matches!(&self.preview_mode, PreviewMode::Disable);
 
         let main_content = match &mut self.preview_mode {
             PreviewMode::Disable => {
