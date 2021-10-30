@@ -32,6 +32,7 @@ indexmap = "1.7.0"
 reqwest = {version = "0.11.4", features = ["json"]}
 winapi = {version = "0.3.9", features = ["wincon", "winuser"]}
 font-awesome-as-a-crate = "0.1.2"
+image-rs = {package = "image", version = "0.23.14"}
 
 [profile.release]
 strip = true
