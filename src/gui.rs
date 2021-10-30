@@ -159,8 +159,7 @@ pub(crate) enum PreviewMode {
     Disable,
     /// User has requested a full screen preview, but we don't have the full size downloaded
     PreviewRequested {
-        url: String,
-        preview: image::Handle,
+        index: usize,
     },
     /// Handle to the downloaded image
     PreviewView(image::Handle, button::State),
@@ -350,6 +349,7 @@ impl Application for WallpaperUi {
                 let mut rng = thread_rng();
                 self.search_options.seed = Some(rng.next_u64().to_string());
                 self.search_results.clear();
+                self.preview_mode = PreviewMode::Disable;
                 return Command::perform(
                     WallpaperUi::search_command(
                         self.search_options.clone(),
@@ -645,21 +645,24 @@ impl Application for WallpaperUi {
             }
             WallpaperMessage::TogglePreview(preview) => {
                 self.preview_mode = preview;
-                if let PreviewMode::PreviewRequested { url, .. } = &self.preview_mode {
-                    return Command::perform(WallpaperUi::fetch_full_image(url.clone()), |wall| {
-                        if let Ok(handle) = wall {
-                            info!("preview loaded!");
-                            WallpaperMessage::TogglePreview(PreviewMode::PreviewView(
-                                handle,
-                                button::State::new(),
-                            ))
-                        } else {
-                            error!("failed to load preview");
-                            WallpaperMessage::TogglePreview(PreviewMode::PreviewFailed(
-                                button::State::new(),
-                            ))
-                        }
-                    });
+                if let PreviewMode::PreviewRequested { index: item, .. } = &self.preview_mode {
+                    if let Some((value, _)) = self.search_results.get(*item) {
+                        let url = value.path.clone();
+                        return Command::perform(WallpaperUi::fetch_full_image(url), |wall| {
+                            if let Ok(handle) = wall {
+                                info!("preview loaded!");
+                                WallpaperMessage::TogglePreview(PreviewMode::PreviewView(
+                                    handle,
+                                    button::State::new(),
+                                ))
+                            } else {
+                                error!("failed to load preview");
+                                WallpaperMessage::TogglePreview(PreviewMode::PreviewFailed(
+                                    button::State::new(),
+                                ))
+                            }
+                        });
+                    }
                 }
             }
         }
@@ -724,13 +727,14 @@ impl Application for WallpaperUi {
                 .map(|chunk| {
                     chunk
                         .iter_mut()
-                        .filter(|(_, image)| -> bool {
+                        .enumerate()
+                        .filter(|(_, (_, image))| -> bool {
                             match ignore_downloaded {
                                 true => !matches!(image.state, ImageState::Downloaded),
                                 false => true,
                             }
                         })
-                        .map(|(listing, image)| {
+                        .map(|(index, (listing, image))| {
                             let col = Column::new()
                                 .width(Length::Shrink)
                                 .align_items(Alignment::Center)
@@ -817,10 +821,7 @@ impl Application for WallpaperUi {
                                             )
                                             .on_press(
                                                 WallpaperMessage::TogglePreview(
-                                                    PreviewMode::PreviewRequested {
-                                                        url: listing.path.clone(),
-                                                        preview: image.image_handle.clone(),
-                                                    },
+                                                    PreviewMode::PreviewRequested { index },
                                                 ),
                                             ),
                                         )
@@ -845,13 +846,21 @@ impl Application for WallpaperUi {
                 .push(loading_status)
                 .push(next_button)
                 .align_items(Alignment::Center),
-            PreviewMode::PreviewRequested { preview, .. } => Column::new()
-                .push(
-                    Text::new("Loading full-size image preview")
-                        .color(Color::WHITE)
-                        .size(26),
-                )
-                .push(Image::new(preview.clone())),
+            PreviewMode::PreviewRequested { index: item, .. } => {
+                if let Some((_, view)) = self.search_results.get(*item) {
+                    Column::new()
+                        .push(
+                            Text::new("Loading full-size image preview")
+                                .color(Color::WHITE)
+                                .size(26),
+                        )
+                        .push(Image::new(view.image_handle.clone()))
+                } else {
+                    Column::new().push(
+                        Text::new("Previewing invalid item?").color(Color::from_rgb8(255, 0, 0)),
+                    )
+                }
+            }
             PreviewMode::PreviewView(image, state) => Column::new()
                 .push(Image::new(image.clone()))
                 .push(
