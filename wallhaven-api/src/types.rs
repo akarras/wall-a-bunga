@@ -363,7 +363,7 @@ pub struct ListingData {
 pub enum Category {
     Anime,
     People,
-    General
+    General,
 }
 
 impl Default for Category {
