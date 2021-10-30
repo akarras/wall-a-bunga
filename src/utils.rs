@@ -2,9 +2,9 @@
 /// Will return a decimal point if applicable
 pub(crate) fn trendy_number_format(val: f64) -> String {
     let log = val.log10();
-    let val_suff = if log >= 3.0 && log < 6.0 {
+    let val_suff = if (3.0..6.0).contains(&log) {
         Some((val / 1000.0, "k"))
-    } else if log >= 6.0 && log < 9.0 {
+    } else if (6.0..9.0).contains(&log) {
         Some((val / 1000000.0, "m"))
     } else if log >= 9.0 {
         Some((val / 1000000000.0, "b"))
