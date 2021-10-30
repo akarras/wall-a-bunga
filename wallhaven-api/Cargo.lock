@@ -1135,7 +1135,7 @@ checksum = "6454029bf181f092ad1b853286f23e2c507d8e8194d01d92da4a55c274a5508c"
 
 [[package]]
 name = "wallhaven-api"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "log",
  "native-dialog",

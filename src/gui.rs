@@ -781,7 +781,9 @@ impl Application for WallpaperUi {
         let main_content = match &mut self.preview_mode {
             PreviewMode::Disable => {
                 let mut row = Row::new();
-                let mut column = Column::new().spacing(5).push(Text::new("Search results").color(Color::WHITE));
+                let mut column = Column::new()
+                    .spacing(5)
+                    .push(Text::new("Search results").color(Color::WHITE));
 
                 for (index, (listing, image)) in self.search_results.iter_mut().enumerate() {
                     let should_display = match ignore_downloaded {
@@ -797,21 +799,19 @@ impl Application for WallpaperUi {
                                     &mut image.button_state,
                                     Image::new(image.image_handle.clone()),
                                 )
-                                    .style(match image.state {
-                                        ImageState::Selected => button_style::Button::Primary,
-                                        ImageState::Unselected => button_style::Button::Inactive,
-                                        ImageState::Queued => button_style::Button::Downloading,
-                                        ImageState::Downloading(_) => {
-                                            button_style::Button::Downloading
-                                        }
-                                        ImageState::Downloaded => button_style::Button::Downloaded,
-                                        ImageState::Failed => button_style::Button::Failed,
-                                    })
-                                    .on_press(
-                                        WallpaperMessage::SelectionUpdate(
-                                            SelectionUpdateType::Single(listing.id.clone()),
-                                        ),
-                                    ),
+                                .style(match image.state {
+                                    ImageState::Selected => button_style::Button::Primary,
+                                    ImageState::Unselected => button_style::Button::Inactive,
+                                    ImageState::Queued => button_style::Button::Downloading,
+                                    ImageState::Downloading(_) => button_style::Button::Downloading,
+                                    ImageState::Downloaded => button_style::Button::Downloaded,
+                                    ImageState::Failed => button_style::Button::Failed,
+                                })
+                                .on_press(
+                                    WallpaperMessage::SelectionUpdate(SelectionUpdateType::Single(
+                                        listing.id.clone(),
+                                    )),
+                                ),
                             )
                             .push(
                                 Row::new()
@@ -822,7 +822,7 @@ impl Application for WallpaperUi {
                                                     "w:{}px h:{}px",
                                                     listing.dimension_x, listing.dimension_y
                                                 ))
-                                                    .color(Color::WHITE),
+                                                .color(Color::WHITE),
                                             )
                                             .push(
                                                 Row::new()
@@ -835,7 +835,7 @@ impl Application for WallpaperUi {
                                                         Text::new(trendy_number_format(
                                                             listing.favorites as f64,
                                                         ))
-                                                            .color(Color::WHITE),
+                                                        .color(Color::WHITE),
                                                     )
                                                     .push(Space::new(
                                                         Length::Units(5),
@@ -850,7 +850,7 @@ impl Application for WallpaperUi {
                                                         Text::new(trendy_number_format(
                                                             listing.views as f64,
                                                         ))
-                                                            .color(Color::WHITE),
+                                                        .color(Color::WHITE),
                                                     )
                                                     .push(Space::new(
                                                         Length::Units(5),
@@ -862,7 +862,7 @@ impl Application for WallpaperUi {
                                                             Category::People => "People",
                                                             Category::General => "General",
                                                         })
-                                                            .color(Color::WHITE),
+                                                        .color(Color::WHITE),
                                                     ),
                                             ),
                                     )
@@ -873,18 +873,13 @@ impl Application for WallpaperUi {
                                             "preview",
                                             "image",
                                         )
-                                            .on_press(
-                                                WallpaperMessage::DownloadPreview(
-                                                    index
-                                                ),
-                                            ),
+                                        .on_press(WallpaperMessage::DownloadPreview(index)),
                                     )
                                     .width(Length::Shrink),
                             );
                         col = match image.state {
                             ImageState::Downloading(progress) => col.push(
-                                ProgressBar::new(0.0..=100.0, progress)
-                                    .width(Length::Units(256)),
+                                ProgressBar::new(0.0..=100.0, progress).width(Length::Units(256)),
                             ),
                             _ => col,
                         };
@@ -896,22 +891,27 @@ impl Application for WallpaperUi {
                         row = Row::new();
                     }
                 }
-                column.push(row)
+                column
+                    .push(row)
                     .push(loading_status)
                     .push(next_button)
                     .align_items(Alignment::Center)
             }
-            PreviewMode::PreviewRequestDownloading { preview_handle, cancel_button, .. } => {
-                Column::new()
-                    .push(
-                        Text::new("Downloading full-size image preview")
-                            .color(Color::WHITE)
-                            .size(26),
-                    )
-                    .push(make_button_fa(cancel_button, "cancel", "ban").on_press(WallpaperMessage::CancelPreview()))
-                    .push(Image::new(preview_handle.clone()))
-                    .push(Text::new("Note: Once the image has downloaded, it can take some time to load into the GPU.").color(Color::WHITE))
-            }
+            PreviewMode::PreviewRequestDownloading {
+                preview_handle,
+                cancel_button,
+                ..
+            } => Column::new()
+                .push(
+                    Text::new("Downloading full-size image preview")
+                        .color(Color::WHITE)
+                        .size(26),
+                )
+                .push(
+                    make_button_fa(cancel_button, "cancel", "ban")
+                        .on_press(WallpaperMessage::CancelPreview()),
+                )
+                .push(Image::new(preview_handle.clone())),
             PreviewMode::PreviewView(image, viewer_state, state) => Column::new()
                 .push(
                     make_button_fa(state, "back", "arrow-left")

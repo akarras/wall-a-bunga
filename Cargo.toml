@@ -2,7 +2,7 @@ cargo-features = ["strip"]
 
 [package]
 name = "wall-a-bunga"
-version = "0.2.2-beta"
+version = "0.3.0"
 authors = ["Chew <chew@akarras.com>"]
 edition = "2018"
 resolver = "2"
