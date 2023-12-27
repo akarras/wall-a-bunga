@@ -11,13 +11,10 @@ use font_awesome_as_a_crate::Type;
 use iced::widget::image::Viewer;
 use iced::widget::scrollable::Viewport;
 use iced::widget::{
-    image, Button, Checkbox, Column, Container, Image, PickList, ProgressBar,
-    Row, Scrollable, Space, Text, TextInput,
+    image, Button, Checkbox, Column, Container, Image, PickList, ProgressBar, Row, Scrollable,
+    Space, Text, TextInput,
 };
-use iced::{
-    alignment, executor, Alignment, Application, Command, Element, Length,
-    Subscription,
-};
+use iced::{alignment, executor, Alignment, Application, Command, Element, Length, Subscription};
 use log::{debug, error, info, warn};
 use native_dialog::FileDialog;
 use rand::{thread_rng, RngCore};
@@ -209,11 +206,7 @@ impl WallpaperUi {
         let bytes = reqwest::get(url).await?.bytes().await?;
         Ok(spawn_blocking(move || {
             if let Ok(image) = image_rs::load_from_memory(&bytes) {
-                let pixels: Vec<_> = image
-                    .to_rgba8()
-                    .pixels()
-                    .flat_map(|m| m.0)
-                    .collect();
+                let pixels: Vec<_> = image.to_rgba8().pixels().flat_map(|m| m.0).collect();
                 image::Handle::from_pixels(image.width(), image.height(), pixels)
             } else {
                 warn!("Failed to convert image ourselves, letting Iced try.");
@@ -303,9 +296,7 @@ impl Application for WallpaperUi {
                     ..Default::default()
                 },
                 api_key: key.unwrap_or_default(),
-                concurrent_download_control: IncrementControl {
-                    value: 5,
-                },
+                concurrent_download_control: IncrementControl { value: 5 },
                 ..Self::default()
             },
             Command::perform(
