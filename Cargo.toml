@@ -1,5 +1,3 @@
-cargo-features = ["strip"]
-
 [package]
 name = "wall-a-bunga"
 version = "0.3.0"
