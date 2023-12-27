@@ -5,7 +5,7 @@ Wall-a-bunga is a wallpaper downloader for [wallhaven.cc](http://wallhaven.cc) w
 ![Release](https://github.com/akarras/wall-a-bunga/workflows/Release/badge.svg)
 
 ### Why?
-I wanted to be able to download a bunch of images from Wallhaven at once with one click. I found a C++ program, but it was 
+I wanted to be able to download a bunch of images from Wallhaven at once. I found a C++ program, but it was
 clunky and didn't make me happy. So, I had the classic thought, aha, rewrite this in Rust. So here we are...
 
 ![](demo.gif)
@@ -17,10 +17,13 @@ clunky and didn't make me happy. So, I had the classic thought, aha, rewrite thi
 * Filter wallpapers you already have downloaded from the results
 
 ### Installation
-* On Windows ensure you have [Visual C++ runtime](https://aka.ms/vs/16/release/vc_redist.x64.exe) installed
-* Download the executable [here](https://github.com/akarras/wall-a-bunga/releases/latest) and run it
-* `cargo install --git https://github.com/akarras/wall-a-bunga`
-* alternatively, `git clone https://github.com/akarras/wall-a-bunga`, and `git build --release` inside the root directory
+* [Download](https://github.com/akarras/wall-a-bunga/releases/latest)
+* From Source:  
+    * `cargo install --git https://github.com/akarras/wall-a-bunga`
+
+    **or**
+    
+    * alternatively, `git clone https://github.com/akarras/wall-a-bunga`, and `git build --release` inside the root directory
 
 ### Contributing
 * [Issues](https://github.com/akarras/wall-a-bunga/issues/new) with bugs and ideas are always welcome
