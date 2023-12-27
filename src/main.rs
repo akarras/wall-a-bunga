@@ -8,7 +8,7 @@ mod utils;
 
 use crate::settings::SavedSettings;
 use gui::WallpaperUi;
-use iced::{window, Application, Settings};
+use iced::{window, Application, Settings, Size};
 
 /// Hides the console that pops up when the Iced gui is started on Windows.
 #[cfg(windows)]
@@ -31,7 +31,7 @@ fn main() {
     hide_console_window();
     WallpaperUi::run(Settings {
         window: window::Settings {
-            size: (1800, 800),
+            size: Size::new(1800.0, 800.0),
             min_size: None,
             max_size: None,
             ..Default::default()

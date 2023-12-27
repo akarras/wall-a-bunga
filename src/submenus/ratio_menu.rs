@@ -1,21 +1,30 @@
 use crate::gui::WallpaperMessage;
 use crate::style::{inactive_style, make_button};
-use iced::{button, Row};
+use iced::widget::Row;
 use std::collections::HashSet;
+use std::sync::OnceLock;
 use wallapi::types::XYCombo;
 
 #[derive(Debug, Clone)]
 pub(crate) struct RatioMenu {
-    button_states: Vec<(XYCombo, button::State)>,
+    options: Vec<(XYCombo, &'static str)>,
 }
 
 impl Default for RatioMenu {
     fn default() -> Self {
-        let button_states = wallapi::types::ASPECT_RATIOS
-            .iter()
-            .map(|aspect_ratio| (aspect_ratio.clone(), button::State::new()))
-            .collect();
-        Self { button_states }
+        static LOCK: OnceLock<Vec<(XYCombo, &str)>> = OnceLock::new();
+        let options = LOCK.get_or_init(|| {
+            wallapi::types::ASPECT_RATIOS
+                .iter()
+                .map(|ratio| {
+                    let s: &'static str = Box::new(ratio.to_string()).leak();
+                    (*ratio, s)
+                })
+                .collect()
+        });
+        Self {
+            options: options.clone(),
+        }
     }
 }
 
@@ -28,17 +37,15 @@ fn get_is_toggled(option: &XYCombo, selections: &Option<HashSet<XYCombo>>) -> bo
 
 impl RatioMenu {
     pub(crate) fn build_ratio_row(
-        &mut self,
+        &self,
         selected_ratios: &Option<HashSet<XYCombo>>,
     ) -> Row<WallpaperMessage> {
-        self.button_states
-            .iter_mut()
-            .fold(Row::new(), |row, (ratio, state)| {
-                row.push(
-                    make_button(state, &ratio.to_string())
-                        .style(inactive_style(get_is_toggled(ratio, selected_ratios)))
-                        .on_press(WallpaperMessage::AspectRatioSelected(ratio.clone())),
-                )
-            })
+        self.options.iter().fold(Row::new(), |row, (ratio, label)| {
+            row.push(
+                make_button(label)
+                    .style(inactive_style(get_is_toggled(ratio, selected_ratios)))
+                    .on_press(WallpaperMessage::AspectRatioSelected(*ratio)),
+            )
+        })
     }
 }

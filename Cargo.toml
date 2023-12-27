@@ -1,36 +1,36 @@
 [package]
 name = "wall-a-bunga"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Chew <chew@akarras.com>"]
-edition = "2018"
+edition = "2021"
 resolver = "2"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 wallapi = { package = "wallhaven-api", path = "wallhaven-api"}
-iced = {git = "https://github.com/iced-rs/iced.git", features = ["image", "tokio", "svg"]}
+iced = {git = "https://github.com/iced-rs/iced.git", features = ["image", "tokio", "svg", "advanced"]}
 iced_futures = {git = "https://github.com/iced-rs/iced.git"}
-iced_native = {git = "https://github.com/iced-rs/iced.git"}
+# iced_native = {git = "https://github.com/iced-rs/iced.git"}
 futures = "0.3.17"
 thiserror = "1.0.29"
 log = "0.4.14"
-pretty_env_logger = "0.4.0"
-tokio = { version = "1.12.0", features = ["fs", "rt-multi-thread", "macros"] }
+pretty_env_logger = "0.5.0"
+tokio = { version = "1.28.0", features = ["full"] }
 rand = "0.8.4"
 anyhow = "1.0.44"
 serde = { version = "1.0.130", features = ["derive"] }
-native-dialog = "0.5.5"
+native-dialog = "0.7.0"
 platform-dirs = "0.3.0"
 serde_json = "1.0.68"
 num = "0.4.0"
-itertools = "0.10.1"
+itertools = "0.12.0"
 bytes = "1.1.0"
-indexmap = "1.7.0"
+indexmap = "2.1.0"
 reqwest = {version = "0.11.4", features = ["json"]}
 winapi = {version = "0.3.9", features = ["wincon", "winuser"]}
 font-awesome-as-a-crate = "0.1.2"
-image-rs = {package = "image", version = "0.23.14"}
+image-rs = {package = "image", version = "0.24.7"}
 
 [profile.release]
 strip = true
