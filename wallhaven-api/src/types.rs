@@ -186,7 +186,7 @@ impl Default for SortingOrder {
     }
 }
 
-#[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct XYCombo {
     pub x: i32,
     pub y: i32,

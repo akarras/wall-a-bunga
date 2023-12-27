@@ -8,18 +8,23 @@ use crate::submenus::resolution_menu::ResolutionOptionsMenu;
 use crate::utils::trendy_number_format;
 use anyhow::Result;
 use font_awesome_as_a_crate::Type;
-use iced::{
-    alignment, button, executor, image, pick_list, scrollable, text_input, Alignment, Application,
-    Button, Checkbox, Color, Column, Command, Container, Element, Image, Length, PickList,
-    ProgressBar, Row, Scrollable, Space, Text, TextInput,
+use iced::widget::image::Viewer;
+use iced::widget::scrollable::Viewport;
+use iced::widget::{
+    image, Button, Checkbox, Column, Container, Image, PickList, ProgressBar,
+    Row, Scrollable, Space, Text, TextInput,
 };
-use iced_native::Subscription;
-use image_rs::GenericImageView;
+use iced::{
+    alignment, executor, Alignment, Application, Command, Element, Length,
+    Subscription,
+};
 use log::{debug, error, info, warn};
 use native_dialog::FileDialog;
 use rand::{thread_rng, RngCore};
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::rc::Rc;
 use thiserror::Error;
 use tokio::fs::metadata;
 use tokio::task::spawn_blocking;
@@ -32,57 +37,45 @@ use wallapi::{WallhavenApiClientError, WallhavenClient};
 #[derive(Debug, Default)]
 pub(crate) struct WallpaperUi {
     controls: SearchControls,
-    search_state: text_input::State,
     search_value: String,
-    search_button: button::State,
     search_results: Vec<(ListingData, ImageView)>,
     search_meta: Option<SearchMetaData>,
     search_options: SearchOptions,
     error_message: String,
-    scroll_state: scrollable::State,
-    api_text_input: text_input::State,
     settings: SavedSettings,
     api_key: String,
-    resolutions_menu_button: button::State,
-    aspect_menu_button: button::State,
     resolution_menu: ResolutionOptionsMenu,
     aspect_menu: RatioMenu,
     download_manager: DownloadManager,
     concurrent_download_control: IncrementControl,
-    next_page_button: button::State,
     preview_mode: PreviewMode,
 }
 
 #[derive(Debug, Default)]
 struct IncrementControl {
-    increment_button: button::State,
-    decrement_button: button::State,
     value: i32,
 }
 
 impl IncrementControl {
-    fn view(&mut self) -> Row<WallpaperMessage> {
+    fn view(&self) -> Row<WallpaperMessage> {
         Row::new()
             .push(
-                make_button(&mut self.decrement_button, "-")
+                make_button("-")
                     .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value - 1))
                     .padding([5, 5]),
             )
+            .push(Text::new(format!("{}", self.value)).size(26))
             .push(
-                Text::new(format!("{}", self.value))
-                    .color(Color::WHITE)
-                    .size(26),
-            )
-            .push(
-                make_button(&mut self.increment_button, "+")
+                make_button("+")
                     .on_press(WallpaperMessage::ChangeConcurrentDownloads(self.value + 1))
                     .padding([5, 5]),
             )
     }
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Default, Debug, Copy, Clone, PartialEq)]
 enum ImageState {
+    #[default]
     Unselected,
     Selected,
     Queued,
@@ -91,19 +84,10 @@ enum ImageState {
     Downloaded,
     Failed,
 }
-
-impl Default for ImageState {
-    fn default() -> Self {
-        ImageState::Unselected
-    }
-}
-
 #[derive(Debug, Clone)]
 pub(crate) struct ImageView {
     state: ImageState,
     image_handle: image::Handle,
-    button_state: button::State,
-    preview_button: button::State,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -151,7 +135,7 @@ pub(crate) enum WallpaperMessage {
     DownloadUpdated(DownloadStatus),
     SetMinimumResolution(XYCombo),
     ChangeConcurrentDownloads(i32),
-    Scroll(f32),
+    Scroll(Viewport),
     NextPage(),
     /// Downloads the preview, usize is an index into the currently downloaded results.
     DownloadPreview(usize),
@@ -159,57 +143,33 @@ pub(crate) enum WallpaperMessage {
     UpdatePreviewMode(PreviewMode),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub(crate) enum PreviewMode {
+    #[default]
     Disable,
     /// User has requested a full screen preview, but we don't have the full size downloaded
     PreviewRequestDownloading {
         /// Image handle to the small thumbnail
         preview_handle: image::Handle,
         cancel_mechanism: tokio::sync::mpsc::Sender<()>,
-        cancel_button: button::State,
     },
     /// Handle to the downloaded image
-    PreviewView(image::Handle, image::viewer::State, button::State),
-    PreviewFailed(button::State),
+    PreviewView(image::Handle),
+    PreviewFailed,
 }
 
-impl Default for PreviewMode {
-    fn default() -> Self {
-        PreviewMode::Disable
-    }
-}
-
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub(crate) enum Submenu {
+    #[default]
     None,
     Settings,
     Resolution,
     AspectRatio,
 }
 
-impl Default for Submenu {
-    fn default() -> Self {
-        Submenu::None
-    }
-}
-
 #[derive(Debug, Default, Clone)]
 pub(crate) struct SearchControls {
-    sorting_picker: pick_list::State<Sorting>,
-    download_button: button::State,
-    nsfw_button: button::State,
-    sketchy_button: button::State,
-    sfw_button: button::State,
-    general_button: button::State,
-    anime_button: button::State,
-    people_button: button::State,
     submenu: Submenu,
-    settings_button: button::State,
-    save_settings_button: button::State,
-    choose_directory_button: button::State,
-    select_all_button: button::State,
-    deselect_all_button: button::State,
 }
 
 #[derive(Error, Debug)]
@@ -241,8 +201,6 @@ impl WallpaperUi {
         let result = ImageView {
             state,
             image_handle: image::Handle::from_memory(bytes.as_ref().to_vec()),
-            button_state: Default::default(),
-            preview_button: Default::default(),
         };
         Ok((data, result))
     }
@@ -252,9 +210,8 @@ impl WallpaperUi {
         Ok(spawn_blocking(move || {
             if let Ok(image) = image_rs::load_from_memory(&bytes) {
                 let pixels: Vec<_> = image
-                    .to_bgra8()
+                    .to_rgba8()
                     .pixels()
-                    .into_iter()
                     .flat_map(|m| m.0)
                     .collect();
                 image::Handle::from_pixels(image.width(), image.height(), pixels)
@@ -316,7 +273,7 @@ impl WallpaperUi {
     }
 
     /// guesstimate our loading status based on our page
-    fn get_loading_status(&mut self) -> Text {
+    fn get_loading_status(&self) -> Text {
         let page = self.search_options.page.unwrap_or(1) as i64;
         let is_loading = match &self.search_meta {
             Some(meta) => meta.current_page != page,
@@ -327,7 +284,7 @@ impl WallpaperUi {
             self.search_meta, self.search_options.page
         );
         let loading_text = if is_loading { "Loading..." } else { "" };
-        Text::new(loading_text).size(42).color(Color::WHITE)
+        Text::new(loading_text).size(42)
     }
 }
 
@@ -348,7 +305,6 @@ impl Application for WallpaperUi {
                 api_key: key.unwrap_or_default(),
                 concurrent_download_control: IncrementControl {
                     value: 5,
-                    ..Default::default()
                 },
                 ..Self::default()
             },
@@ -444,7 +400,7 @@ impl Application for WallpaperUi {
                     });
 
                 for (url, id) in image_urls {
-                    let file_name = match url.split('/').into_iter().last() {
+                    let file_name = match url.split('/').last() {
                         Some(name) => name,
                         None => {
                             error!("Error getting filename of url: {}", url);
@@ -617,7 +573,7 @@ impl Application for WallpaperUi {
             WallpaperMessage::Scroll(scroll) => {
                 if let PreviewMode::Disable = &self.preview_mode {
                     // currently we only want to respond to scroll events when the user can see the image list
-                    debug!("scroll {}", scroll);
+                    debug!("scroll {:?}", scroll);
                     // scroll ranges from 0 to 1. if 1, try to load more wallpapers
                     let search_meta = if let Some(search_meta) = &self.search_meta {
                         search_meta
@@ -625,7 +581,7 @@ impl Application for WallpaperUi {
                         return Command::none();
                     };
                     let page = self.search_options.page.unwrap_or(1);
-                    if scroll >= 1.0
+                    if scroll.relative_offset().y >= 1.0
                         && page < search_meta.last_page as i32
                         && page == search_meta.current_page as i32
                     {
@@ -682,7 +638,6 @@ impl Application for WallpaperUi {
                     self.preview_mode = PreviewMode::PreviewRequestDownloading {
                         preview_handle: image_view.image_handle.clone(),
                         cancel_mechanism: sender,
-                        cancel_button: Default::default(),
                     };
                     return Command::perform(future, |selection| match selection {
                         Some(wall) => {
@@ -690,14 +645,10 @@ impl Application for WallpaperUi {
                                 info!("preview loaded!");
                                 WallpaperMessage::UpdatePreviewMode(PreviewMode::PreviewView(
                                     handle,
-                                    image::viewer::State::new(),
-                                    button::State::new(),
                                 ))
                             } else {
                                 error!("failed to load preview");
-                                WallpaperMessage::UpdatePreviewMode(PreviewMode::PreviewFailed(
-                                    button::State::new(),
-                                ))
+                                WallpaperMessage::UpdatePreviewMode(PreviewMode::PreviewFailed)
                             }
                         }
                         None => {
@@ -733,7 +684,7 @@ impl Application for WallpaperUi {
             .map(WallpaperMessage::DownloadUpdated)
     }
 
-    fn view(&mut self) -> Element<'_, Self::Message> {
+    fn view(&self) -> Element<'_, Self::Message> {
         let loading_status = self.get_loading_status();
         let selected_count = self
             .search_results
@@ -770,124 +721,104 @@ impl Application for WallpaperUi {
             .unwrap_or(true)
         {
             Column::new().push(
-                make_button_fa(&mut self.next_page_button, "next page", "arrow-right")
-                    .on_press(WallpaperMessage::NextPage()),
+                make_button_fa("next page", "arrow-right").on_press(WallpaperMessage::NextPage()),
             )
         } else {
             Column::new()
         };
         let is_preview_disabled = matches!(&self.preview_mode, PreviewMode::Disable);
 
-        let main_content = match &mut self.preview_mode {
+        let main_content = match &self.preview_mode {
             PreviewMode::Disable => {
                 let mut row = Row::new();
-                let mut column = Column::new()
-                    .spacing(5)
-                    .push(Text::new("Search results").color(Color::WHITE));
+                let mut column = Column::new().spacing(5).push(Text::new("Search results"));
 
-                for (index, (listing, image)) in self.search_results.iter_mut().enumerate() {
-                    let should_display = match ignore_downloaded {
-                        true => !matches!(image.state, ImageState::Downloaded),
-                        false => true,
-                    };
-                    if should_display {
-                        let mut col = Column::new()
-                            .width(Length::Shrink)
-                            .align_items(Alignment::Center)
-                            .push(
-                                Button::new(
-                                    &mut image.button_state,
-                                    Image::new(image.image_handle.clone()),
-                                )
-                                .style(match image.state {
+                for (index, (listing, image)) in self
+                    .search_results
+                    .iter()
+                    .filter(|(_, image)| {
+                        !ignore_downloaded || matches!(image.state, ImageState::Downloaded)
+                    })
+                    .enumerate()
+                {
+                    let mut wallpaper_column = Column::new()
+                        // .width(Length::Fixed(250.0))
+                        .push(
+                            Button::new(Image::new(image.image_handle.clone()))
+                                .style(iced::theme::Button::Custom(Box::new(match image.state {
                                     ImageState::Selected => button_style::Button::Primary,
                                     ImageState::Unselected => button_style::Button::Inactive,
                                     ImageState::Queued => button_style::Button::Downloading,
                                     ImageState::Downloading(_) => button_style::Button::Downloading,
                                     ImageState::Downloaded => button_style::Button::Downloaded,
                                     ImageState::Failed => button_style::Button::Failed,
-                                })
-                                .on_press(
-                                    WallpaperMessage::SelectionUpdate(SelectionUpdateType::Single(
-                                        listing.id.clone(),
-                                    )),
-                                ),
-                            )
-                            .push(
-                                Row::new()
-                                    .push(
-                                        Column::new()
-                                            .push(
-                                                Text::new(format!(
-                                                    "w:{}px h:{}px",
-                                                    listing.dimension_x, listing.dimension_y
+                                })))
+                                .on_press(WallpaperMessage::SelectionUpdate(
+                                    SelectionUpdateType::Single(listing.id.clone()),
+                                )),
+                        )
+                        .push(
+                            Row::new()
+                                .push(
+                                    Column::new()
+                                        .push(Text::new(format!(
+                                            "w:{}px h:{}px",
+                                            listing.dimension_x, listing.dimension_y
+                                        )))
+                                        .width(Length::Shrink)
+                                        .push(
+                                            Row::new()
+                                                .width(Length::Shrink)
+                                                .push(
+                                                    FAIcon::new(Type::Solid, "heart")
+                                                        .svg()
+                                                        .height(Length::Fixed(20.0)),
+                                                )
+                                                .push(Text::new(trendy_number_format(
+                                                    listing.favorites as f64,
+                                                )))
+                                                .push(Space::new(
+                                                    Length::Fixed(5.0),
+                                                    Length::Shrink,
                                                 ))
-                                                .color(Color::WHITE),
-                                            )
-                                            .push(
-                                                Row::new()
-                                                    .push(
-                                                        FAIcon::new(Type::Solid, "heart")
-                                                            .svg()
-                                                            .height(Length::Units(20)),
-                                                    )
-                                                    .push(
-                                                        Text::new(trendy_number_format(
-                                                            listing.favorites as f64,
-                                                        ))
-                                                        .color(Color::WHITE),
-                                                    )
-                                                    .push(Space::new(
-                                                        Length::Units(5),
-                                                        Length::Shrink,
-                                                    ))
-                                                    .push(
-                                                        FAIcon::new(Type::Solid, "eye")
-                                                            .svg()
-                                                            .height(Length::Units(20)),
-                                                    )
-                                                    .push(
-                                                        Text::new(trendy_number_format(
-                                                            listing.views as f64,
-                                                        ))
-                                                        .color(Color::WHITE),
-                                                    )
-                                                    .push(Space::new(
-                                                        Length::Units(5),
-                                                        Length::Shrink,
-                                                    ))
-                                                    .push(
-                                                        Text::new(match &listing.category {
-                                                            Category::Anime => "Anime",
-                                                            Category::People => "People",
-                                                            Category::General => "General",
-                                                        })
-                                                        .color(Color::WHITE),
-                                                    ),
-                                            ),
-                                    )
-                                    .push(Space::new(Length::Units(10), Length::Shrink))
-                                    .push(
-                                        make_button_fa(
-                                            &mut image.preview_button,
-                                            "preview",
-                                            "image",
-                                        )
+                                                .push(
+                                                    FAIcon::new(Type::Solid, "eye")
+                                                        .svg()
+                                                        .height(Length::Fixed(20.0)),
+                                                )
+                                                .push(Text::new(trendy_number_format(
+                                                    listing.views as f64,
+                                                )))
+                                                .push(Space::new(
+                                                    Length::Fixed(5.0),
+                                                    Length::Shrink,
+                                                ))
+                                                .push(Text::new(match &listing.category {
+                                                    Category::Anime => "Anime",
+                                                    Category::People => "People",
+                                                    Category::General => "General",
+                                                })),
+                                        ),
+                                )
+                                .push(Space::new(Length::Fixed(10.0), Length::Shrink))
+                                .push(
+                                    make_button_fa("preview", "image")
                                         .on_press(WallpaperMessage::DownloadPreview(index)),
-                                    )
-                                    .width(Length::Shrink),
-                            );
-                        col = match image.state {
-                            ImageState::Downloading(progress) => col.push(
-                                ProgressBar::new(0.0..=100.0, progress).width(Length::Units(256)),
-                            ),
-                            _ => col,
-                        };
-                        row = row.push(col);
-                    }
-
+                                )
+                                .width(Length::Shrink),
+                        );
+                    wallpaper_column = match image.state {
+                        ImageState::Downloading(progress) => wallpaper_column.push(
+                            ProgressBar::new(0.0..=100.0, progress).width(Length::Fixed(256.0)),
+                        ),
+                        _ => wallpaper_column,
+                    };
+                    row = row.push(wallpaper_column);
+                    // grid wrapping
                     if index % 5 == 4 {
-                        column = column.push(row);
+                        let element: Element<'_, WallpaperMessage> = row.into();
+                        // let element = element.explain(Color::WHITE);
+                        column = column.push(element);
                         row = Row::new();
                     }
                 }
@@ -895,40 +826,26 @@ impl Application for WallpaperUi {
                     .push(row)
                     .push(loading_status)
                     .push(next_button)
+                    .width(Length::Fill)
                     .align_items(Alignment::Center)
             }
-            PreviewMode::PreviewRequestDownloading {
-                preview_handle,
-                cancel_button,
-                ..
-            } => Column::new()
-                .push(
-                    Text::new("Downloading full-size image preview")
-                        .color(Color::WHITE)
-                        .size(26),
-                )
-                .push(
-                    make_button_fa(cancel_button, "cancel", "ban")
-                        .on_press(WallpaperMessage::CancelPreview()),
-                )
+            PreviewMode::PreviewRequestDownloading { preview_handle, .. } => Column::new()
+                .push(Text::new("Downloading full-size image preview").size(26))
+                .push(make_button_fa("cancel", "ban").on_press(WallpaperMessage::CancelPreview()))
                 .push(Image::new(preview_handle.clone())),
-            PreviewMode::PreviewView(image, viewer_state, state) => Column::new()
+            PreviewMode::PreviewView(image) => Column::new()
                 .push(
-                    make_button_fa(state, "back", "arrow-left")
+                    make_button_fa("back", "arrow-left")
                         .on_press(WallpaperMessage::UpdatePreviewMode(PreviewMode::Disable)),
                 )
-                .push(image::viewer::Viewer::new(viewer_state, image.clone()).width(Length::Fill))
+                .push(Viewer::new(image.clone()).width(Length::Fill))
                 .align_items(Alignment::Center),
-            PreviewMode::PreviewFailed(state) => Column::new()
+            PreviewMode::PreviewFailed => Column::new()
                 .push(
-                    make_button_fa(state, "back", "arrow-left")
+                    make_button_fa("back", "arrow-left")
                         .on_press(WallpaperMessage::UpdatePreviewMode(PreviewMode::Disable)),
                 )
-                .push(
-                    Text::new("Failed to load preview")
-                        .color(Color::from_rgb8(230, 10, 10))
-                        .size(26),
-                )
+                .push(Text::new("Failed to load preview").size(26))
                 .align_items(Alignment::Center),
         };
 
@@ -936,18 +853,14 @@ impl Application for WallpaperUi {
             .height(Length::Shrink)
             .width(Length::Fill)
             .push(
-                TextInput::new(
-                    &mut self.search_state,
-                    "Search",
-                    &self.search_value,
-                    WallpaperMessage::SearchUpdated,
-                )
-                .size(16)
-                .padding(15)
-                .on_submit(WallpaperMessage::Search()),
+                TextInput::new("Search", &self.search_value)
+                    .size(16)
+                    .padding(15)
+                    .on_input(WallpaperMessage::SearchUpdated)
+                    .on_submit(WallpaperMessage::Search()),
             )
             .push(
-                make_button_fa(&mut self.search_button, "search", "search")
+                make_button_fa("search", "search")
                     .width(Length::Shrink)
                     .height(Length::Shrink)
                     .on_press(WallpaperMessage::Search()),
@@ -962,8 +875,7 @@ impl Application for WallpaperUi {
             .unwrap_or(&default_t);
         let purity = self.search_options.purity.as_ref().unwrap_or(&default_p);
 
-        let mut nsfw_button =
-            make_button(&mut self.controls.nsfw_button, "nsfw").style(inactive_style(purity.nsfw));
+        let mut nsfw_button = make_button("nsfw").style(inactive_style(purity.nsfw));
         if !self.api_key.is_empty() {
             nsfw_button = nsfw_button.on_press(WallpaperMessage::TogglePurity(PurityOptions::Nsfw));
         }
@@ -973,70 +885,71 @@ impl Application for WallpaperUi {
             .width(Length::Shrink)
             //.align_items(Align::Center)
             .push(
-                make_button(&mut self.controls.general_button, "general")
+                make_button("general")
                     .on_press(WallpaperMessage::ToggleContentType(ContentTypes::General))
                     .style(inactive_style(search_type.general)),
             )
             .push(
-                make_button(&mut self.controls.anime_button, "anime")
+                make_button("anime")
                     .on_press(WallpaperMessage::ToggleContentType(ContentTypes::Anime))
                     .style(inactive_style(search_type.anime)),
             )
             .push(
-                make_button(&mut self.controls.people_button, "people")
+                make_button("people")
                     .on_press(WallpaperMessage::ToggleContentType(ContentTypes::People))
                     .style(inactive_style(search_type.people)),
             )
             .push(Space::new(Length::FillPortion(5), Length::Shrink))
             .push(
-                make_button(&mut self.controls.sfw_button, "clean")
+                make_button("clean")
                     .on_press(WallpaperMessage::TogglePurity(PurityOptions::Sfw))
                     .style(inactive_style(purity.clean)),
             )
             .push(
-                make_button(&mut self.controls.sketchy_button, "sketchy")
+                make_button("sketchy")
                     .on_press(WallpaperMessage::TogglePurity(PurityOptions::Sketchy))
                     .style(inactive_style(purity.sketchy)),
             )
             .push(nsfw_button)
             .push(
                 PickList::new(
-                    &mut self.controls.sorting_picker,
                     &Sorting::LIST[..],
                     self.search_options.sorting,
                     WallpaperMessage::SortingTypeChanged,
                 )
-                .style(crate::style::pick_style::PickList)
+                .style(iced::theme::PickList::Custom(
+                    Rc::new(crate::style::pick_style::PickList),
+                    Rc::new(crate::style::pick_style::PickList),
+                ))
                 .text_size(26)
                 .width(Length::Shrink)
                 .padding(5),
             )
             .push(
-                make_button(&mut self.resolutions_menu_button, "resolutions")
+                make_button("resolutions")
                     .on_press(WallpaperMessage::ChangeSubmenu(Submenu::Resolution)),
             )
             .push(
-                make_button(&mut self.aspect_menu_button, "aspect ratio")
+                make_button("aspect ratio")
                     .on_press(WallpaperMessage::ChangeSubmenu(Submenu::AspectRatio)),
             )
             .push(Space::new(Length::FillPortion(5), Length::Shrink))
             .push(
-                make_button(&mut self.controls.select_all_button, "select all").on_press(
-                    WallpaperMessage::SelectionUpdate(SelectionUpdateType::SelectAll),
-                ),
+                make_button("select all").on_press(WallpaperMessage::SelectionUpdate(
+                    SelectionUpdateType::SelectAll,
+                )),
             )
             .push(
-                make_button(&mut self.controls.deselect_all_button, "deselect all").on_press(
-                    WallpaperMessage::SelectionUpdate(SelectionUpdateType::DeselectAll),
-                ),
+                make_button("deselect all").on_press(WallpaperMessage::SelectionUpdate(
+                    SelectionUpdateType::DeselectAll,
+                )),
             )
             .push(
-                make_button(&mut self.controls.settings_button, "settings")
+                make_button("settings")
                     .on_press(WallpaperMessage::ChangeSubmenu(Submenu::Settings)),
             )
             .push(
-                make_button_fa(&mut self.controls.download_button, "download", "download")
-                    .on_press(WallpaperMessage::DownloadImages()),
+                make_button_fa("download", "download").on_press(WallpaperMessage::DownloadImages()),
             );
 
         let (current_page, last_page) = self
@@ -1049,42 +962,35 @@ impl Application for WallpaperUi {
                 "selected: {}  page: {}/{} {}",
                 selected_count, current_page, last_page, results
             ))
-            .color(Color::WHITE)
+            // .color(Color::WHITE)
             .size(26),
         );
 
         let status_row = Row::new()
             .align_items(Alignment::Center)
-            .push(Space::new(Length::Fill, Length::Units(10)))
+            .push(Space::new(Length::Fill, Length::Fixed(10.0)))
             .push(self.download_manager.view())
             .spacing(5);
 
         let submenu = match self.controls.submenu {
             Submenu::Settings => Column::new()
                 .align_items(Alignment::Start)
-                .push(Text::new("Settings").size(26).color(Color::WHITE))
+                .push(Text::new("Settings").size(26))
                 .push(
                     Column::new()
                         .padding([10, 5])
-                        .push(Text::new("Concurrent Downloads").color(Color::WHITE))
+                        .push(Text::new("Concurrent Downloads"))
                         .push(self.concurrent_download_control.view()),
                 )
                 .push(
                     Column::new()
                         .padding([10, 5])
                         .width(Length::Fill)
+                        .push(Text::new("wallhaven.cc api token (required for nsfw):"))
                         .push(
-                            Text::new("wallhaven.cc api token (required for nsfw):")
-                                .color(Color::WHITE),
-                        )
-                        .push(
-                            TextInput::new(
-                                &mut self.api_text_input,
-                                "api key",
-                                &*self.api_key,
-                                WallpaperMessage::ApiTokenSet,
-                            )
-                            .max_width(600),
+                            TextInput::new("api key", &self.api_key)
+                                .on_input(WallpaperMessage::ApiTokenSet)
+                                .width(Length::Fixed(600.0)),
                         ),
                 )
                 .push(
@@ -1093,36 +999,28 @@ impl Application for WallpaperUi {
                         .push(
                             Column::new()
                                 .padding([10, 5])
-                                .push(Text::new("save directory:").color(Color::WHITE))
-                                .push(
-                                    Text::new(
-                                        self.settings
-                                            .save_directory
-                                            .as_ref()
-                                            .unwrap_or(&"./".to_string()),
-                                    )
-                                    .color(Color::WHITE),
-                                ),
+                                .push(Text::new("save directory:"))
+                                .push(Text::new(
+                                    self.settings
+                                        .save_directory
+                                        .clone()
+                                        .map(|s| s.into())
+                                        .unwrap_or(Cow::Borrowed("./")),
+                                )),
                         )
                         .push(
-                            make_button(
-                                &mut self.controls.choose_directory_button,
-                                "Choose Directory",
-                            )
-                            .on_press(WallpaperMessage::ChooseDirectory())
-                            .padding([10, 5]),
+                            make_button("Choose Directory")
+                                .on_press(WallpaperMessage::ChooseDirectory())
+                                .padding([10, 5]),
                         ),
                 )
+                .push(Checkbox::new(
+                    "Ignore downloaded",
+                    self.settings.ignore_downloaded,
+                    WallpaperMessage::SetIgnoreDownloaded,
+                ))
                 .push(
-                    Checkbox::new(
-                        self.settings.ignore_downloaded,
-                        "Ignore downloaded",
-                        WallpaperMessage::SetIgnoreDownloaded,
-                    )
-                    .text_color(Color::WHITE),
-                )
-                .push(
-                    make_button(&mut self.controls.save_settings_button, "save settings")
+                    make_button("save settings")
                         .on_press(WallpaperMessage::SaveSettings())
                         .width(Length::Shrink),
                 ),
@@ -1156,12 +1054,10 @@ impl Application for WallpaperUi {
         if is_preview_disabled {
             column = column
                 .push(
-                    Scrollable::new(&mut self.scroll_state)
+                    Scrollable::new(main_content)
                         .on_scroll(WallpaperMessage::Scroll)
-                        .push(main_content)
                         .width(Length::Fill)
-                        .height(Length::Fill)
-                        .align_items(Alignment::Center),
+                        .height(Length::Fill), // .align_items(Alignment::Center),
                 )
                 .push(selection_info);
         } else {
@@ -1174,7 +1070,42 @@ impl Application for WallpaperUi {
             .into()
     }
 
-    fn background_color(&self) -> Color {
-        Color::from_rgb(0.1, 0.1, 0.11)
+    type Theme = iced::Theme;
+
+    fn theme(&self) -> Self::Theme {
+        iced::Theme::Dark
     }
+
+    // type Theme = WallabungaTheme;
 }
+
+// #[derive(Default)]
+// pub struct WallabungaTheme;
+
+// pub enum StyleMode {
+//     Dark,
+//     Light,
+// }
+
+// impl Default for StyleMode {
+//     fn default() -> Self {
+//         Self::Dark
+//     }
+// }
+
+// impl StyleSheet for WallabungaTheme {
+//     type Style = StyleMode;
+
+//     fn appearance(&self, style: &Self::Style) -> iced::application::Appearance {
+//         match style {
+//             StyleMode::Dark => iced::application::Appearance {
+//                 background_color: Color::from_rgb(0.1, 0.1, 0.11),
+//                 text_color: Color::from_rgb(0.98, 0.97, 0.95),
+//             },
+//             StyleMode::Light => iced::application::Appearance {
+//                 background_color: Color::from_rgb(0.98, 0.97, 0.95),
+//                 text_color: Color::from_rgb(0.1, 0.1, 0.11),
+//             },
+//         }
+//     }
+// }

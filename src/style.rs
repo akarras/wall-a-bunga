@@ -1,68 +1,79 @@
 use crate::font_awesome::FAIcon;
 use crate::gui::WallpaperMessage;
 use font_awesome_as_a_crate::Type;
-use iced::{button, Row, Space};
-use iced::{Button, Length, Text};
+use iced::{
+    theme,
+    widget::{Button, Row, Space, Text},
+    Length,
+};
 
-pub(crate) fn make_button<'a>(
-    state: &'a mut button::State,
+pub(crate) fn make_button(
+    // state: &'a mut button::State,
     text: &str,
-) -> Button<'a, WallpaperMessage> {
-    Button::new(state, Text::new(text).size(21))
+) -> Button<'_, WallpaperMessage> {
+    Button::new(Text::new(text).size(21))
         .padding(10)
-        .style(button_style::Button::Primary)
+        .style(theme::Button::custom(button_style::Button::Primary))
         .height(Length::Shrink)
         .width(Length::Shrink)
 }
 
 pub(crate) fn make_button_fa<'a>(
-    state: &'a mut button::State,
-    text: &str,
+    // state: &'a mut button::State,
+    text: &'a str,
     fa_icon: &str,
 ) -> Button<'a, WallpaperMessage> {
     Button::new(
-        state,
+        // state,
         Row::new()
             .push(Text::new(text).size(21))
-            .push(Space::new(Length::Units(5), Length::Shrink))
+            .push(Space::new(Length::Fixed(5.0), Length::Shrink))
             .push(
                 FAIcon::new(Type::Solid, fa_icon)
                     .svg()
-                    .height(Length::Units(21)),
+                    .height(Length::Fixed(21.0))
+                    .width(Length::Fixed(21.0)),
             ),
     )
     .padding(10)
-    .style(button_style::Button::Primary)
+    .style(theme::Button::custom(button_style::Button::Primary))
     .height(Length::Shrink)
     .width(Length::Shrink)
 }
 
-pub(crate) fn inactive_style(btn: bool) -> button_style::Button {
-    match btn {
+pub(crate) fn inactive_style(btn: bool) -> theme::Button {
+    let custom_style = match btn {
         true => button_style::Button::Primary,
         false => button_style::Button::Inactive,
-    }
+    };
+    theme::Button::custom(custom_style)
 }
 
 pub mod pick_style {
-    use iced::{pick_list, Background, Color};
+    use iced::{overlay::menu, widget::pick_list, Background, BorderRadius, Color, Theme};
 
+    #[derive(Default, Clone)]
     pub struct PickList;
 
-    impl pick_list::StyleSheet for PickList {
-        fn menu(&self) -> pick_list::Menu {
-            pick_list::Menu {
+    impl menu::StyleSheet for PickList {
+        type Style = Theme;
+
+        fn appearance(&self, _style: &Self::Style) -> menu::Appearance {
+            menu::Appearance {
                 text_color: Color::WHITE,
                 background: Background::Color(Color::from_rgb(0.3, 0.3, 0.3)),
                 border_width: 1.0,
                 border_color: Color::from_rgb(0.3, 0.3, 0.3),
                 selected_background: Color::from_rgb(0.3, 0.3, 0.3).into(),
                 selected_text_color: Color::WHITE,
+                border_radius: BorderRadius::from([1.0, 1.0, 1.0, 1.0]),
             }
         }
+    }
 
-        fn active(&self) -> pick_list::Style {
-            pick_list::Style {
+    impl pick_list::StyleSheet for PickList {
+        fn active(&self, _style: &Self::Style) -> pick_list::Appearance {
+            pick_list::Appearance {
                 text_color: Color::WHITE,
                 placeholder_color: Color::WHITE,
                 background: Color::from_rgb(0.3, 0.3, 0.3).into(),
@@ -71,15 +82,16 @@ pub mod pick_style {
                     a: 0.6,
                     ..Color::BLACK
                 },
-                border_radius: 10.0,
-                icon_size: 0.5,
+                border_radius: 10.0.into(),
+                // icon_size: 0.5,
+                handle_color: Color::from_rgb(0.6, 0.2, 0.1),
             }
         }
 
-        fn hovered(&self) -> pick_list::Style {
-            let active = self.active();
+        fn hovered(&self, style: &Self::Style) -> pick_list::Appearance {
+            let active = self.active(style);
 
-            pick_list::Style {
+            pick_list::Appearance {
                 border_color: Color {
                     a: 0.9,
                     ..Color::BLACK
@@ -87,12 +99,15 @@ pub mod pick_style {
                 ..active
             }
         }
+
+        type Style = Theme;
     }
 }
 
 pub mod button_style {
-    use iced::{button, Background, Color, Vector};
+    use iced::{widget::button, Background, Color, Theme, Vector};
 
+    #[derive(Copy, Clone)]
     pub enum Button {
         Primary,
         Downloaded,
@@ -101,9 +116,15 @@ pub mod button_style {
         Failed,
     }
 
+    impl Default for Button {
+        fn default() -> Self {
+            Self::Primary
+        }
+    }
+
     impl button::StyleSheet for Button {
-        fn active(&self) -> button::Style {
-            button::Style {
+        fn active(&self, _style: &Self::Style) -> button::Appearance {
+            button::Appearance {
                 background: Some(Background::Color(match self {
                     Button::Primary => Color::from_rgb(0.87, 0.42, 0.11),
                     Button::Downloaded => Color::from_rgb(0.467, 0.867, 0.467),
@@ -111,11 +132,13 @@ pub mod button_style {
                     Button::Downloading => Color::from_rgb(0.992, 0.992, 0.588),
                     Button::Failed => Color::from_rgb(1.0, 0.0, 0.0),
                 })),
-                border_radius: 12.0,
+                border_radius: 12.0.into(),
                 shadow_offset: Vector::new(1.0, 1.0),
                 text_color: Color::WHITE,
-                ..button::Style::default()
+                ..button::Appearance::default()
             }
         }
+
+        type Style = Theme;
     }
 }

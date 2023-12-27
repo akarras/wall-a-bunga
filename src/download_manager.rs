@@ -2,7 +2,9 @@ use crate::font_awesome::FAIcon;
 use crate::gui::WallpaperMessage;
 use font_awesome_as_a_crate::Type;
 use iced::futures::stream::BoxStream;
-use iced::{Color, Length, Row, Text};
+use iced::widget::{Row, Text};
+use iced::Length;
+use iced_futures::subscription::{EventStream, Recipe};
 use indexmap::IndexMap;
 use log::{debug, error, info};
 use reqwest::Response;
@@ -58,21 +60,13 @@ impl DownloadManager {
         let complete_icon = FAIcon::new(Type::Solid, "check").svg();
         if self.downloads.is_empty() || self.finished_downloads > 0 {
             Row::new()
-                .push(download_icon.height(Length::Units(26)))
-                .push(
-                    Text::new(format!("{}", self.downloads.len()))
-                        .color(Color::WHITE)
-                        .size(26),
-                )
-                .push(complete_icon.height(Length::Units(26)))
-                .push(
-                    Text::new(format!("{}", self.finished_downloads))
-                        .color(Color::WHITE)
-                        .size(26),
-                )
+                .push(download_icon.height(Length::Fixed(26.0)))
+                .push(Text::new(format!("{}", self.downloads.len())).size(26))
+                .push(complete_icon.height(Length::Fixed(26.0)))
+                .push(Text::new(format!("{}", self.finished_downloads)).size(26))
         } else {
             Row::new()
-                .push(download_icon.height(Length::Units(15)))
+                .push(download_icon.height(Length::Fixed(15.0)))
                 .push(Text::new("0"))
         }
     }
@@ -118,20 +112,17 @@ pub(crate) enum DownloadStatus {
     Finished(String),
 }
 
-impl<H, I> iced_native::subscription::Recipe<H, I> for ImageDownload
-where
-    H: std::hash::Hasher,
-{
+impl Recipe for ImageDownload {
     type Output = DownloadStatus;
 
-    fn hash(&self, state: &mut H) {
+    fn hash(&self, state: &mut iced_futures::core::Hasher) {
         use std::hash::Hash;
 
         std::any::TypeId::of::<Self>().hash(state);
         self.url.hash(state);
     }
 
-    fn stream(self: Box<Self>, _: BoxStream<I>) -> BoxStream<Self::Output> {
+    fn stream(self: Box<Self>, _: EventStream) -> BoxStream<'static, Self::Output> {
         Box::pin(futures::stream::unfold(
             DownloadState::Started {
                 url: self.url,
